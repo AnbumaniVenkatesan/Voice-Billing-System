@@ -1,0 +1,46 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Poppins', sans-serif;
+  background: #F8FAFC;
+  color: #1E293B;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+h1 { font-size: 30px; font-weight: 700; color: #1E293B; }
+h2 { font-size: 24px; font-weight: 600; color: #1E293B; }
+h3 { font-size: 18px; font-weight: 500; color: #1E293B; }
+
+a { text-decoration: none; color: inherit; }
+
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  border-radius: 20px !important;
+}
+
+.mat-mdc-snack-bar-container {
+  border-radius: 12px !important;
+}
+
+.mat-mdc-menu-panel {
+  border-radius: 12px !important;
+}
+
+.cdk-overlay-dark-backdrop {
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(4px);
+}

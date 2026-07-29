@@ -1,0 +1,30 @@
+export interface Company {
+  companyId: number;
+  companyName: string;
+  ownerName: string;
+  shopType: string;
+  gstNumber: string;
+  panNumber: string;
+  phoneNumber: string;
+  alternatePhone: string;
+  email: string;
+  website: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  district: string;
+  state: string;
+  country: string;
+  pincode: string;
+  logo: string;
+  upiId: string;
+  bankName: string;
+  bankAccountNumber: string;
+  ifscCode: string;
+  invoicePrefix: string;
+  currency: string;
+  taxPercentage: number;
+  billFooter: string;
+  receiptMessage: string;
+  isActive: boolean;
+}

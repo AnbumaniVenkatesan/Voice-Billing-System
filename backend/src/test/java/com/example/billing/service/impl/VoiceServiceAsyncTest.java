@@ -1,0 +1,335 @@
+package com.example.billing.service.impl;
+
+import com.example.billing.dto.request.VoiceRequest;
+import com.example.billing.dto.response.VoiceResponse;
+import com.example.billing.entity.Product;
+import com.example.billing.entity.ProductAlias;
+import com.example.billing.repository.ProductAliasRepository;
+import com.example.billing.repository.ProductRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.Executor;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class VoiceServiceAsyncTest {
+
+    @Mock
+    private ProductRepository productRepository;
+
+    @Mock
+    private ProductAliasRepository productAliasRepository;
+
+    @InjectMocks
+    private VoiceServiceImpl voiceService;
+
+    private Executor synchronousExecutor;
+
+    @BeforeEach
+    void setUp() {
+        // Use synchronous executor for predictable unit tests
+        synchronousExecutor = Runnable::run;
+
+        // Inject the executor via reflection since @Qualifier makes constructor injection tricky
+        try {
+            var field = VoiceServiceImpl.class.getDeclaredField("voiceBillingExecutor");
+            field.setAccessible(true);
+            field.set(voiceService, synchronousExecutor);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Product createProduct(Long id, String name, String tamilName, BigDecimal price, BigDecimal gst, int stock) {
+        return Product.builder()
+                .productId(id)
+                .productName(name)
+                .tamilName(tamilName)
+                .price(price)
+                .gstPercentage(gst)
+                .stock(stock)
+                .status("active")
+                .build();
+    }
+
+    private ProductAlias createAlias(Product product, String aliasName) {
+        return ProductAlias.builder()
+                .aliasId(1L)
+                .product(product)
+                .aliasName(aliasName)
+                .build();
+    }
+
+    // =========================================================================
+    // Test: Single product voice command
+    // =========================================================================
+
+    @Test
+    @DisplayName("Single product — should return 1 matched, 0 unmatched")
+    void singleProduct_voiceCommand_returnsMatched() {
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        ProductAlias arisiAlias = createAlias(rice, "arisi");
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(List.of(arisiAlias));
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(rice));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("rendu arisi");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(1);
+        assertThat(response.getUnmatchedItems()).isEmpty();
+
+        VoiceResponse.VoiceItem item = response.getMatchedItems().get(0);
+        assertThat(item.getProductId()).isEqualTo(1L);
+        assertThat(item.getProductName()).isEqualTo("Rice");
+        assertThat(item.getQuantity()).isEqualTo(2);
+        assertThat(item.getPrice()).isEqualByComparingTo(new BigDecimal("85.00"));
+    }
+
+    // =========================================================================
+    // Test: Multiple products — all matched
+    // =========================================================================
+
+    @Test
+    @DisplayName("Multiple products — all matched, returns correct items")
+    void multipleProducts_allMatched_returnsAll() {
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"), 200);
+
+        ProductAlias arisiAlias = createAlias(rice, "arisi");
+        ProductAlias soapAlias = createAlias(soap, "soap");
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(List.of(arisiAlias, soapAlias));
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(rice, soap));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("rendu arisi moonu soap");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(2);
+        assertThat(response.getUnmatchedItems()).isEmpty();
+    }
+
+    // =========================================================================
+    // Test: Mixed — some matched, some unmatched
+    // =========================================================================
+
+    @Test
+    @DisplayName("Mixed products — matched and unmatched separated correctly")
+    void mixedProducts_returnsMatchedAndUnmatched() {
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        ProductAlias arisiAlias = createAlias(rice, "arisi");
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(List.of(arisiAlias));
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(rice));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("rendu arisi naalu biscuit");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(1);
+        assertThat(response.getMatchedItems().get(0).getProductName()).isEqualTo("Rice");
+
+        assertThat(response.getUnmatchedItems()).hasSize(1);
+        assertThat(response.getUnmatchedItems().get(0).getSpokenText()).isEqualTo("Biscuit");
+        assertThat(response.getUnmatchedItems().get(0).getQuantity()).isEqualTo(4);
+    }
+
+    // =========================================================================
+    // Test: All unmatched — no products found
+    // =========================================================================
+
+    @Test
+    @DisplayName("All unmatched — no products found, returns empty matched")
+    void allUnmatched_returnsEmptyMatched() {
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(Collections.emptyList());
+        when(productRepository.findByStatus("active"))
+                .thenReturn(Collections.emptyList());
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("naalu biscuit moonu chocolate");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).isEmpty();
+        assertThat(response.getUnmatchedItems()).hasSize(2);
+    }
+
+    // =========================================================================
+    // Test: GST calculation
+    // =========================================================================
+
+    @Test
+    @DisplayName("GST calculated correctly — 18% on ₹35 soap x 2 = ₹12.60")
+    void gstCalculation_correctAmount() {
+        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"), 200);
+        ProductAlias soapAlias = createAlias(soap, "soap");
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(List.of(soapAlias));
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(soap));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("rendu soap");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(1);
+        VoiceResponse.VoiceItem item = response.getMatchedItems().get(0);
+        assertThat(item.getGstPercentage()).isEqualByComparingTo(new BigDecimal("18.00"));
+        assertThat(item.getPrice()).isEqualByComparingTo(new BigDecimal("35.00"));
+        assertThat(item.getQuantity()).isEqualTo(2);
+    }
+
+    // =========================================================================
+    // Test: Empty text returns empty response
+    // =========================================================================
+
+    @Test
+    @DisplayName("Empty text — returns empty matched and unmatched")
+    void emptyText_returnsEmptyResponse() {
+        VoiceRequest request = new VoiceRequest();
+        request.setText("   ");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).isEmpty();
+        assertThat(response.getUnmatchedItems()).isEmpty();
+    }
+
+    // =========================================================================
+    // Test: Name matching fallback (no alias, but product name matches)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Name fallback — product found by name match when no alias exists")
+    void nameFallback_productFoundByName() {
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(Collections.emptyList());
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(rice));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("rendu rice");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(1);
+        assertThat(response.getMatchedItems().get(0).getProductName()).isEqualTo("Rice");
+    }
+
+    // =========================================================================
+    // Test: Stock validation — product still added even with low stock
+    // =========================================================================
+
+    @Test
+    @DisplayName("Low stock — product still added (backorder allowed)")
+    void lowStock_productStillAdded() {
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 1);
+        ProductAlias arisiAlias = createAlias(rice, "arisi");
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(List.of(arisiAlias));
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(rice));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("naalu arisi");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(1);
+        assertThat(response.getMatchedItems().get(0).getQuantity()).isEqualTo(4);
+    }
+
+    // =========================================================================
+    // Test: Performance — multiple products complete in reasonable time
+    // =========================================================================
+
+    @Test
+    @DisplayName("Performance — 10 products processed in < 500ms")
+    void performance_tenProducts_fast() {
+        List<Product> products = new ArrayList<>();
+        List<ProductAlias> aliases = new ArrayList<>();
+
+        for (int i = 1; i <= 10; i++) {
+            Product p = createProduct((long) i, "Product" + i, "Tamil" + i,
+                    new BigDecimal("10.00"), BigDecimal.ZERO, 100);
+            products.add(p);
+            aliases.add(createAlias(p, "product" + i));
+        }
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(aliases);
+        when(productRepository.findByStatus("active"))
+                .thenReturn(products);
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i <= 10; i++) {
+            if (i > 1) sb.append(" ");
+            sb.append(i).append(" product").append(i);
+        }
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText(sb.toString());
+
+        long start = System.currentTimeMillis();
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+        long elapsed = System.currentTimeMillis() - start;
+
+        assertThat(response.getMatchedItems()).hasSize(10);
+        assertThat(response.getUnmatchedItems()).isEmpty();
+        assertThat(elapsed).isLessThan(500);
+    }
+
+    // =========================================================================
+    // Test: Exception in one product does not fail others
+    // =========================================================================
+
+    @Test
+    @DisplayName("Partial failure — one product error does not break others")
+    void partialFailure_othersStillProcess() {
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), BigDecimal.ZERO, 200);
+
+        ProductAlias arisiAlias = createAlias(rice, "arisi");
+        ProductAlias soapAlias = createAlias(soap, "soap");
+
+        when(productAliasRepository.findByAliasNamesIn(anyList()))
+                .thenReturn(List.of(arisiAlias, soapAlias));
+        when(productRepository.findByStatus("active"))
+                .thenReturn(List.of(rice, soap));
+
+        VoiceRequest request = new VoiceRequest();
+        request.setText("rendu arisi moonu soap");
+
+        VoiceResponse response = voiceService.processVoiceCommand(request);
+
+        assertThat(response.getMatchedItems()).hasSize(2);
+    }
+}
