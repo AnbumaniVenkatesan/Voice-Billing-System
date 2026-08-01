@@ -42,20 +42,6 @@ import { Invoice } from '../../shared/models/models';
               <input type="text" [(ngModel)]="searchInvoiceNo" (input)="applyFilter()" placeholder="Search invoice...">
             </div>
           </div>
-          <div class="filter-group" *ngIf="!isHotel">
-            <label>Customer</label>
-            <div class="input-wrap">
-              <mat-icon>person</mat-icon>
-              <input type="text" [(ngModel)]="searchCustomerName" (input)="applyFilter()" placeholder="Customer name...">
-            </div>
-          </div>
-          <div class="filter-group" *ngIf="!isHotel">
-            <label>Phone</label>
-            <div class="input-wrap">
-              <mat-icon>phone</mat-icon>
-              <input type="text" [(ngModel)]="searchPhone" (input)="applyFilter()" placeholder="Phone number...">
-            </div>
-          </div>
           <div class="filter-group">
             <label>Status</label>
             <div class="input-wrap">
@@ -103,10 +89,6 @@ import { Invoice } from '../../shared/models/models';
               <td mat-cell *matCellDef="let row">
                 <span class="invoice-number">{{ row.invoiceNumber }}</span>
               </td>
-            </ng-container>
-            <ng-container matColumnDef="customerName">
-              <th mat-header-cell *matHeaderCellDef>Customer</th>
-              <td mat-cell *matCellDef="let row">{{ row.customerName || '-' }}</td>
             </ng-container>
             <ng-container matColumnDef="totalAmount">
               <th mat-header-cell *matHeaderCellDef>Amount</th>
@@ -378,8 +360,34 @@ import { Invoice } from '../../shared/models/models';
 
     @media (max-width: 768px) {
       :host { padding: 16px; }
+      .page-header { margin-bottom: 20px; }
+      .header-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+      }
+      .header-icon mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+      h1 { font-size: 24px; }
+      .subtitle { font-size: 13px; }
       .filter-row { flex-direction: column; }
       .filter-group { min-width: 100%; }
+      .filter-bar { padding: 16px; }
+      .btn-clear { height: 48px; }
+      .table-header-row { padding: 16px 16px 12px; }
+      .paginator-wrapper {
+        padding: 8px 8px 12px;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .reports-table {
+        min-width: 560px;
+      }
     }
   `]
 })
@@ -388,11 +396,8 @@ export class ReportsComponent implements OnInit {
 
   dataSource = new MatTableDataSource<Invoice>();
   recentColumns: string[] = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate'];
-  isHotel = false;
 
   searchInvoiceNo = '';
-  searchCustomerName = '';
-  searchPhone = '';
   searchStatus = '';
   searchFromDate: Date | null = null;
   searchToDate: Date | null = null;
@@ -419,13 +424,8 @@ export class ReportsComponent implements OnInit {
     });
 
     this.companyService.getCompany().subscribe({
-      next: (data) => {
-        this.isHotel = data.shopType !== 'Super Market';
-        if (!this.isHotel) {
-          this.recentColumns = ['invoiceNumber', 'customerName', 'totalAmount', 'paymentStatus', 'invoiceDate'];
-        } else {
-          this.recentColumns = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate'];
-        }
+      next: () => {
+        this.recentColumns = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate'];
       },
       error: () => {}
     });
@@ -433,14 +433,10 @@ export class ReportsComponent implements OnInit {
 
   matchInvoice(invoice: Invoice): boolean {
     const invoiceNo = (invoice.invoiceNumber || '').toLowerCase();
-    const custName = (invoice.customerName || '').toLowerCase();
-    const phone = (invoice.customerPhone || '').toString();
     const status = (invoice.paymentStatus || '').toLowerCase();
     const invDate = invoice.invoiceDate ? new Date(invoice.invoiceDate) : null;
 
     if (this.searchInvoiceNo && !invoiceNo.includes(this.searchInvoiceNo.toLowerCase())) return false;
-    if (this.searchCustomerName && !custName.includes(this.searchCustomerName.toLowerCase())) return false;
-    if (this.searchPhone && !phone.includes(this.searchPhone)) return false;
     if (this.searchStatus && status !== this.searchStatus.toLowerCase()) return false;
     if (this.searchFromDate && invDate && invDate < this.stripTime(this.searchFromDate)) return false;
     if (this.searchToDate && invDate && invDate > this.stripTimeEnd(this.searchToDate)) return false;
@@ -476,8 +472,6 @@ export class ReportsComponent implements OnInit {
 
   clearFilters(): void {
     this.searchInvoiceNo = '';
-    this.searchCustomerName = '';
-    this.searchPhone = '';
     this.searchStatus = '';
     this.searchFromDate = null;
     this.searchToDate = null;

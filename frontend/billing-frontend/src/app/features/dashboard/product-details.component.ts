@@ -274,13 +274,30 @@ import { CompanyService } from '../../shared/services/company.service';
       :host {
         padding: 20px 16px;
       }
+      .back-btn {
+        height: 44px;
+        padding: 0 16px;
+      }
+      .page-title {
+        font-size: 22px;
+      }
       .table-card {
-        padding: 20px;
+        padding: 16px;
       }
       .table-card-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 12px;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .table-container {
+        display: block;
+        overflow-x: auto;
+      }
+      .empty-state {
+        padding: 48px 16px;
       }
     }
   `]

@@ -38,16 +38,6 @@ import * as QRCode from 'qrcode';
         <input matInput [(ngModel)]="searchInvoiceNo" (input)="applyFilter()" placeholder="e.g. INV-2026-001">
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="search-field" *ngIf="!isHotel">
-        <mat-label>Customer Name</mat-label>
-        <input matInput [(ngModel)]="searchCustomerName" (input)="applyFilter()" placeholder="e.g. Ravi">
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="search-field" *ngIf="!isHotel">
-        <mat-label>Phone</mat-label>
-        <input matInput [(ngModel)]="searchPhone" (input)="applyFilter()" placeholder="e.g. 9876543210">
-      </mat-form-field>
-
       <mat-form-field appearance="outline" class="search-field date-field">
         <mat-label>From Date</mat-label>
         <input matInput [matDatepicker]="fromPicker" [(ngModel)]="searchFromDate" (dateChange)="applyFilter()">
@@ -72,11 +62,6 @@ import * as QRCode from 'qrcode';
         <ng-container matColumnDef="invoiceNumber">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Invoice # </th>
           <td mat-cell *matCellDef="let row"> {{ row.invoiceNumber }} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="customerName">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Customer </th>
-          <td mat-cell *matCellDef="let row"> {{ row.customerName }} </td>
         </ng-container>
 
         <ng-container matColumnDef="totalAmount">
@@ -113,8 +98,40 @@ import * as QRCode from 'qrcode';
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
-      <mat-paginator [pageSizeOptions]="[10, 25, 50]" showFirstLastButtons></mat-paginator>
     </div>
+
+    <div class="mobile-invoice-list" *ngIf="dataSource.filteredData.length > 0">
+      <div class="mobile-invoice-card" *ngFor="let row of displayedInvoices">
+        <div class="mic-top">
+          <span class="mic-number">{{ row.invoiceNumber }}</span>
+          <span [class]="'status-' + row.paymentStatus" class="mic-status">{{ row.paymentStatus }}</span>
+        </div>
+        <div class="mic-rows">
+          <div class="mic-row">
+            <span class="mic-label">Date</span>
+            <span class="mic-value">{{ row.invoiceDate | date:'medium' }}</span>
+          </div>
+          <div class="mic-row">
+            <span class="mic-label">Amount</span>
+            <span class="mic-value mic-amount">₹{{ row.totalAmount }}</span>
+          </div>
+        </div>
+        <div class="mic-actions">
+          <button class="mic-btn view" (click)="viewInvoice(row)">
+            <mat-icon>visibility</mat-icon> View
+          </button>
+          <button class="mic-btn print" (click)="printInvoice(row)">
+            <mat-icon>print</mat-icon> Print
+          </button>
+          <button class="mic-btn pay" (click)="initiatePayment(row)"
+                  *ngIf="row.paymentStatus?.toLowerCase() === 'pending'">
+            <mat-icon>payment</mat-icon> Pay
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <mat-paginator [pageSizeOptions]="[10, 25, 50]" showFirstLastButtons></mat-paginator>
 
     <div class="invoice-detail" *ngIf="selectedInvoice">
       <h3>Invoice: {{ selectedInvoice.invoiceNumber }}</h3>
@@ -210,6 +227,194 @@ import * as QRCode from 'qrcode';
     .qr-details { text-align: center; }
     .qr-details p { margin: 6px 0; font-size: 14px; }
     .qr-actions { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
+
+    /* ====== MOBILE INVOICE CARDS ====== */
+    .mobile-invoice-list {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mobile-invoice-card {
+      background: #fff;
+      border: 1px solid #F1F5F9;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mic-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .mic-number {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1E293B;
+    }
+
+    .mic-status {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .mic-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 0;
+      border-top: 1px solid #F1F5F9;
+      border-bottom: 1px solid #F1F5F9;
+    }
+
+    .mic-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .mic-label {
+      font-size: 13px;
+      color: #64748B;
+    }
+
+    .mic-value {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1E293B;
+      text-align: right;
+    }
+
+    .mic-amount {
+      font-weight: 700;
+      color: #2E7D32;
+    }
+
+    .mic-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .mic-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex: 1;
+      height: 44px;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Roboto', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 200ms ease;
+    }
+
+    .mic-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .mic-btn.view {
+      background: #EEF2FF;
+      color: #1D4ED8;
+    }
+
+    .mic-btn.view:hover {
+      background: #DBEAFE;
+    }
+
+    .mic-btn.print {
+      background: #ECFDF5;
+      color: #047857;
+    }
+
+    .mic-btn.print:hover {
+      background: #D1FAE5;
+    }
+
+    .mic-btn.pay {
+      background: #FFFBEB;
+      color: #B45309;
+    }
+
+    .mic-btn.pay:hover {
+      background: #FEF3C7;
+    }
+
+    @media (max-width: 767.98px) {
+      h2 {
+        font-size: 24px;
+      }
+      :host {
+        display: block;
+        padding: 16px;
+      }
+      .search-bar {
+        padding: 12px;
+      }
+      .search-field {
+        flex: 1 1 100%;
+        min-width: 100%;
+      }
+      .date-field {
+        flex: 1 1 calc(50% - 4px);
+        min-width: calc(50% - 4px);
+      }
+      .clear-btn {
+        width: 100%;
+        height: 48px;
+      }
+      .table-container {
+        display: none;
+      }
+      .mobile-invoice-list {
+        display: flex;
+      }
+      .invoice-detail {
+        padding: 16px;
+      }
+      .invoice-detail h3 {
+        font-size: 17px;
+        word-break: break-all;
+      }
+      .detail-table {
+        display: block;
+        overflow-x: auto;
+      }
+      .invoice-detail .mat-mdc-button,
+      .invoice-detail button {
+        height: 44px;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .mic-actions {
+        flex-direction: row;
+      }
+      .mic-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        height: 44px;
+        padding: 0 6px;
+        font-size: 12px;
+      }
+      .mic-value {
+        max-width: 60%;
+      }
+    }
   `]
 })
 export class InvoiceListComponent implements OnInit {
@@ -225,8 +430,6 @@ export class InvoiceListComponent implements OnInit {
   isHotel = false;
 
   searchInvoiceNo = '';
-  searchCustomerName = '';
-  searchPhone = '';
   searchFromDate: Date | null = null;
   searchToDate: Date | null = null;
 
@@ -245,11 +448,7 @@ export class InvoiceListComponent implements OnInit {
       next: (data) => {
         this.company = data;
         this.isHotel = data.shopType !== 'Super Market';
-        if (!this.isHotel) {
-          this.displayedColumns = ['invoiceNumber', 'customerName', 'totalAmount', 'paymentStatus', 'invoiceDate', 'actions'];
-        } else {
-          this.displayedColumns = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate', 'actions'];
-        }
+        this.displayedColumns = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate', 'actions'];
       },
       error: () => {}
     });
@@ -269,15 +468,20 @@ export class InvoiceListComponent implements OnInit {
     });
   }
 
+  get displayedInvoices(): Invoice[] {
+    const filtered = this.dataSource.filteredData;
+    if (!filtered || filtered.length === 0) return [];
+    const paginator = this.dataSource.paginator;
+    if (!paginator) return filtered;
+    const start = paginator.pageIndex * paginator.pageSize;
+    return filtered.slice(start, start + paginator.pageSize);
+  }
+
   matchInvoice(invoice: Invoice): boolean {
     const invoiceNo = (invoice.invoiceNumber || '').toLowerCase();
-    const custName  = (invoice.customerName || '').toLowerCase();
-    const phone     = (invoice.customerPhone || '').toString();
     const invDate   = invoice.invoiceDate ? new Date(invoice.invoiceDate) : null;
 
     if (this.searchInvoiceNo && !invoiceNo.includes(this.searchInvoiceNo.toLowerCase())) return false;
-    if (this.searchCustomerName && !custName.includes(this.searchCustomerName.toLowerCase())) return false;
-    if (this.searchPhone && !phone.includes(this.searchPhone)) return false;
     if (this.searchFromDate && invDate && invDate < this.stripTime(this.searchFromDate)) return false;
     if (this.searchToDate && invDate && invDate > this.stripTimeEnd(this.searchToDate)) return false;
     return true;
@@ -297,8 +501,6 @@ export class InvoiceListComponent implements OnInit {
 
   clearFilters(): void {
     this.searchInvoiceNo = '';
-    this.searchCustomerName = '';
-    this.searchPhone = '';
     this.searchFromDate = null;
     this.searchToDate = null;
     this.dataSource.filter = '';
@@ -314,6 +516,11 @@ export class InvoiceListComponent implements OnInit {
   reprintInvoice(): void {
     if (!this.selectedInvoice) return;
     ReceiptPrintComponent.print(this.selectedInvoice, this.company, this.selectedInvoice.paymentStatus === 'completed' ? 'CASH' : 'PENDING');
+  }
+
+  printInvoice(row: Invoice): void {
+    this.selectedInvoice = row;
+    this.reprintInvoice();
   }
 
   initiatePayment(invoice: Invoice): void {
@@ -378,8 +585,6 @@ export class InvoiceListComponent implements OnInit {
       data: {
         invoiceNumber: inv.invoiceNumber,
         totalAmount: inv.totalAmount,
-        customerName: inv.customerName,
-        customerPhone: inv.customerPhone,
         qrCodeDataUrl: this.qrCodeDataUrl,
         showMarkCompleted: true,
         onCompleted: () => this.completePayment(inv),

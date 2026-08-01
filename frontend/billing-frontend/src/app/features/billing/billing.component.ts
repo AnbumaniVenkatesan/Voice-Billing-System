@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -6,14 +6,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { CustomerService } from '../../shared/services/customer.service';
 import { ProductService } from '../../shared/services/product.service';
 import { InvoiceService } from '../../shared/services/invoice.service';
 import { CompanyService } from '../../shared/services/company.service';
-import { Customer, Product, Invoice, InvoiceItemRequest } from '../../shared/models/models';
+import { Product, Invoice, InvoiceItemRequest } from '../../shared/models/models';
 import { Company } from '../../shared/models/company.model';
 import { QrDialogComponent } from './qr-dialog.component';
 import { PaymentSuccessDialogComponent } from './payment-success-dialog.component';
@@ -25,7 +23,7 @@ import * as QRCode from 'qrcode';
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatCardModule, MatButtonModule,
-    MatIconModule, MatInputModule, MatFormFieldModule, MatAutocompleteModule,
+    MatIconModule, MatInputModule, MatFormFieldModule,
     MatSnackBarModule, MatDialogModule
   ],
   template: `
@@ -35,20 +33,6 @@ import * as QRCode from 'qrcode';
       <div class="billing-form">
         <mat-card>
           <mat-card-content>
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!isHotel">
-              <mat-label>Select Customer</mat-label>
-              <input #customerInput matInput type="text"
-                     (input)="onCustomerInput($event)"
-                     [matAutocomplete]="customerAuto">
-              <mat-autocomplete #customerAuto="matAutocomplete"
-                                [displayWith]="displayCustomer"
-                                (optionSelected)="onCustomerSelected($event)">
-                <mat-option *ngFor="let c of filteredCustomers" [value]="c">
-                  {{ c.customerName }} - {{ c.phone }}
-                </mat-option>
-              </mat-autocomplete>
-            </mat-form-field>
-
             <div class="product-search">
               <mat-form-field appearance="outline" class="search-field">
                 <mat-label>Search product by name</mat-label>
@@ -229,17 +213,62 @@ import * as QRCode from 'qrcode';
     .status-pending { color: #ff9800; font-weight: 500; }
     .status-cash { color: #4caf50; font-weight: 500; }
     .receipt-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+
+    @media (max-width: 1023.98px) {
+      .billing-layout {
+        flex-direction: column;
+      }
+      .billing-form,
+      .billing-summary {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      :host {
+        display: block;
+        padding: 16px;
+      }
+      h2 {
+        font-size: 24px;
+        margin-bottom: 16px;
+      }
+      .cart-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .cart-item-actions {
+        justify-content: space-between;
+      }
+      .product-price {
+        margin-left: 0;
+      }
+      .payment-buttons button {
+        height: 48px;
+      }
+      .receipt-card {
+        padding: 20px 16px;
+      }
+      .receipt-actions button {
+        flex: 1;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .billing-layout {
+        gap: 16px;
+      }
+      .cart-item-actions .qty {
+        min-width: 24px;
+      }
+    }
   `]
 })
 export class BillingComponent implements OnInit {
-  @ViewChild('customerInput') customerInput!: ElementRef<HTMLInputElement>;
-  customers: Customer[] = [];
-  filteredCustomers: Customer[] = [];
-  customerSearchText = '';
   allProducts: Product[] = [];
   searchResults: Product[] = [];
   searchTerm = '';
-  selectedCustomerId: number | null = null;
   cart: (InvoiceItemRequest & { productName: string; price: number })[] = [];
   discount = 0;
   subtotal = 0;
@@ -256,7 +285,6 @@ export class BillingComponent implements OnInit {
   isHotel = false;
 
   constructor(
-    private customerService: CustomerService,
     private productService: ProductService,
     private invoiceService: InvoiceService,
     private companyService: CompanyService,
@@ -265,10 +293,6 @@ export class BillingComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.customerService.getAllCustomers().subscribe(c => {
-      this.customers = c;
-      this.filteredCustomers = c;
-    });
     this.productService.getAllProducts().subscribe(p => this.allProducts = p);
     this.companyService.getCompany().subscribe({
       next: (data) => {
@@ -278,37 +302,6 @@ export class BillingComponent implements OnInit {
       error: () => {}
     });
   }
-
-  filterCustomers(): void {
-    if (typeof this.customerSearchText !== 'string') return;
-    const term = this.customerSearchText.toLowerCase();
-    this.filteredCustomers = this.customers.filter(c =>
-      c.customerName.toLowerCase().includes(term) ||
-      c.phone.toLowerCase().includes(term) ||
-      (c.email && c.email.toLowerCase().includes(term))
-    );
-  }
-
-  onCustomerInput(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.customerSearchText = value;
-    this.selectedCustomerId = null;
-    this.filterCustomers();
-  }
-
-  onCustomerSelected(event: any): void {
-    const c: Customer = event.option.value;
-    this.selectedCustomerId = c.customerId;
-    this.customerSearchText = `${c.customerName} - ${c.phone}`;
-    if (this.customerInput) {
-      this.customerInput.nativeElement.value = this.customerSearchText;
-    }
-  }
-
-  displayCustomer = (customer: Customer | null): string => {
-    if (!customer) return this.customerSearchText;
-    return `${customer.customerName} - ${customer.phone}`;
-  };
 
   onSearch(): void {
     if (this.searchTerm.length < 1) {
@@ -368,8 +361,8 @@ export class BillingComponent implements OnInit {
   }
 
   generateQRInvoice(): void {
-    // Auto-assign walk-in customer (ID 1) if none selected
-    const customerId = this.selectedCustomerId || 1;
+    // Walk-in customer (ID 1)
+    const customerId = 1;
     this.generating = true;
 
     const request = {
@@ -449,8 +442,6 @@ export class BillingComponent implements OnInit {
       data: {
         invoiceNumber: inv.invoiceNumber,
         totalAmount: inv.totalAmount,
-        customerName: inv.customerName,
-        customerPhone: inv.customerPhone,
         qrCodeDataUrl: this.qrCodeDataUrl,
         onCompleted: () => this.completeQrPayment(),
         isHotel: this.isHotel
@@ -458,8 +449,8 @@ export class BillingComponent implements OnInit {
     });
   }
   generateCashInvoice(): void {
-    // Auto-assign walk-in customer (ID 1) if none selected
-    const customerId = this.selectedCustomerId || 1;
+    // Walk-in customer (ID 1)
+    const customerId = 1;
     this.generating = true;
 
     const request = {

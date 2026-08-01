@@ -17,7 +17,6 @@ import { Company } from '../../shared/models/company.model';
 
       <div class="company-header" *ngIf="company">
         <div class="company-info">
-          <img *ngIf="companyLogo" [src]="companyLogo" alt="Logo" class="company-logo">
           <div>
             <h1 class="company-name">Dashboard</h1>
           </div>
@@ -44,16 +43,6 @@ import { Company } from '../../shared/models/company.model';
           <div class="stat-content">
             <span class="stat-value">&#8377;{{ data?.monthlySales || 0 }}</span>
             <span class="stat-label">Monthly Sales</span>
-          </div>
-        </div>
-
-        <div class="stat-card" *ngIf="!isHotel">
-          <div class="stat-icon-circle purple">
-            <mat-icon>people</mat-icon>
-          </div>
-          <div class="stat-content">
-            <span class="stat-value">{{ data?.totalCustomers || 0 }}</span>
-            <span class="stat-label">Total Customers</span>
           </div>
         </div>
 
@@ -166,16 +155,6 @@ import { Company } from '../../shared/models/company.model';
       display: flex;
       align-items: center;
       gap: 16px;
-    }
-
-    .company-logo {
-      width: 56px;
-      height: 56px;
-      object-fit: contain;
-      border-radius: 14px;
-      background: #fff;
-      padding: 6px;
-      box-shadow: 0 2px 8px rgba(15,23,42,0.06);
     }
 
     .company-name {
@@ -393,10 +372,18 @@ import { Company } from '../../shared/models/company.model';
       gap: 12px;
       height: 280px;
       padding: 0 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+    }
+
+    .bar-chart-container::-webkit-scrollbar {
+      height: 4px;
     }
 
     .bar-col {
       flex: 1;
+      min-width: 48px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -539,9 +526,22 @@ import { Company } from '../../shared/models/company.model';
       .stat-cards-row {
         grid-template-columns: repeat(2, 1fr);
       }
+      .summary-cards-row {
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 1023.98px) {
+      .chart-card-header {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .stat-card {
+        padding: 20px;
+      }
+    }
+
+    @media (max-width: 767.98px) {
       :host {
         padding: 20px 16px;
       }
@@ -554,14 +554,56 @@ import { Company } from '../../shared/models/company.model';
       .summary-cards-row {
         grid-template-columns: 1fr;
       }
+      .page-title {
+        font-size: 24px;
+      }
+      .chart-card {
+        padding: 20px 16px;
+      }
+      .bar-chart-container {
+        height: 240px;
+      }
+      .bar-track {
+        height: 160px;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .stat-card {
+        gap: 14px;
+      }
+      .stat-icon-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+      }
+      .stat-icon-circle mat-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+      .stat-value {
+        font-size: 22px;
+      }
+      .quick-action-btn {
+        height: 52px;
+        font-size: 15px;
+      }
+      .chart-period-select {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .period-btn {
+        flex: 1;
+        padding: 8px 8px;
+        font-size: 12px;
+      }
     }
   `]
 })
 export class DashboardComponent implements OnInit {
   data: DashboardData | null = null;
   company: Company | null = null;
-  companyLogo: string | null = null;
-  isHotel = false;
   weeklyChartData: any[] = [];
   averageSales = '0';
   chartPeriod: 'today' | 'week' | 'month' = 'week';
@@ -583,10 +625,6 @@ export class DashboardComponent implements OnInit {
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.company = data;
-        this.isHotel = data.shopType !== 'Super Market';
-        if (data.logo) {
-          this.companyLogo = data.logo.startsWith('http') ? data.logo : 'http://localhost:8080' + data.logo;
-        }
       }
     });
     this.loadChartData();

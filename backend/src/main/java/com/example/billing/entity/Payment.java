@@ -23,6 +23,9 @@ public class Payment {
     @JoinColumn(name = "invoice_id", nullable = false)
     private Invoice invoice;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "gateway", length = 50, nullable = false)
     private String gateway;
 

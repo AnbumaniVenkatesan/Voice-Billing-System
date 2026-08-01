@@ -26,5 +26,7 @@ export interface Company {
   taxPercentage: number;
   billFooter: string;
   receiptMessage: string;
+  invoiceHeader: string;
+  invoiceFooter: string;
   isActive: boolean;
 }

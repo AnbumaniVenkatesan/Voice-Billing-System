@@ -1,6 +1,6 @@
 package com.example.billing.controller;
 
-import com.example.billing.repository.CustomerRepository;
+import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.repository.InvoiceRepository;
 import com.example.billing.repository.ProductRepository;
 import com.example.billing.repository.PaymentRepository;
@@ -20,36 +20,37 @@ import java.util.*;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getDashboardData() {
+        Long companyId = currentUserProvider.getCompanyId();
         Map<String, Object> dashboard = new HashMap<>();
 
-        dashboard.put("totalCustomers", customerRepository.count());
-        dashboard.put("totalProducts", productRepository.count());
+        dashboard.put("totalProducts", productRepository.findByCompanyId(companyId).size());
 
         LocalDateTime todayStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
         LocalDateTime todayEnd = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
-        BigDecimal todaySales = invoiceRepository.sumSalesBetween(todayStart, todayEnd);
+        BigDecimal todaySales = invoiceRepository.sumSalesBetween(todayStart, todayEnd, companyId);
         dashboard.put("todaySales", todaySales);
 
         LocalDateTime monthStart = LocalDateTime.of(LocalDate.now().withDayOfMonth(1), LocalTime.MIN);
         LocalDateTime monthEnd = LocalDateTime.of(LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()), LocalTime.MAX);
-        BigDecimal monthlySales = invoiceRepository.sumSalesBetween(monthStart, monthEnd);
+        BigDecimal monthlySales = invoiceRepository.sumSalesBetween(monthStart, monthEnd, companyId);
         dashboard.put("monthlySales", monthlySales);
 
-        dashboard.put("pendingPayments", invoiceRepository.countPendingPayments());
-        dashboard.put("completedPayments", invoiceRepository.countCompletedPayments());
+        dashboard.put("pendingPayments", invoiceRepository.countPendingPayments(companyId));
+        dashboard.put("completedPayments", invoiceRepository.countCompletedPayments(companyId));
 
         return ResponseEntity.ok(dashboard);
     }
 
     @GetMapping("/products")
     public ResponseEntity<Map<String, Object>> getProductDetails() {
+        Long companyId = currentUserProvider.getCompanyId();
         Map<String, Object> result = new HashMap<>();
 
         LocalDateTime todayStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
@@ -57,8 +58,8 @@ public class DashboardController {
         LocalDateTime monthStart = LocalDateTime.of(LocalDate.now().withDayOfMonth(1), LocalTime.MIN);
         LocalDateTime monthEnd = LocalDateTime.of(LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()), LocalTime.MAX);
 
-        List<Object[]> todaySales = productRepository.findProductSales(todayStart, todayEnd);
-        List<Object[]> monthlySales = productRepository.findProductSales(monthStart, monthEnd);
+        List<Object[]> todaySales = productRepository.findProductSales(todayStart, todayEnd, companyId);
+        List<Object[]> monthlySales = productRepository.findProductSales(monthStart, monthEnd, companyId);
 
         List<Map<String, Object>> products = new ArrayList<>();
         Set<Long> addedProductIds = new HashSet<>();
@@ -115,15 +116,16 @@ public class DashboardController {
 
     @GetMapping("/today-sales")
     public ResponseEntity<Map<String, Object>> getTodaySales() {
+        Long companyId = currentUserProvider.getCompanyId();
         Map<String, Object> result = new HashMap<>();
 
         LocalDateTime todayStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
         LocalDateTime todayEnd = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
 
-        BigDecimal totalSales = invoiceRepository.sumCompletedSalesBetween(todayStart, todayEnd);
+        BigDecimal totalSales = invoiceRepository.sumCompletedSalesBetween(todayStart, todayEnd, companyId);
         result.put("total", totalSales);
 
-        List<Object[]> gatewaySales = invoiceRepository.salesByGateway(todayStart, todayEnd);
+        List<Object[]> gatewaySales = invoiceRepository.salesByGateway(todayStart, todayEnd, companyId);
         Map<String, BigDecimal> gatewayMap = new HashMap<>();
         for (Object[] row : gatewaySales) {
             String gateway = (String) row[0];
@@ -138,7 +140,7 @@ public class DashboardController {
                 .map(Map.Entry::getValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
 
-        List<Object[]> productSales = invoiceRepository.salesByProduct(todayStart, todayEnd);
+        List<Object[]> productSales = invoiceRepository.salesByProduct(todayStart, todayEnd, companyId);
         List<Map<String, Object>> productList = new ArrayList<>();
         for (Object[] row : productSales) {
             Map<String, Object> product = new HashMap<>();
@@ -161,6 +163,7 @@ public class DashboardController {
 
         Map<String, Object> result = new HashMap<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        Long companyId = currentUserProvider.getCompanyId();
 
         LocalDate fromDate;
         LocalDate toDate;
@@ -175,10 +178,10 @@ public class DashboardController {
         LocalDateTime start = LocalDateTime.of(fromDate, LocalTime.MIN);
         LocalDateTime end = LocalDateTime.of(toDate, LocalTime.MAX);
 
-        BigDecimal totalSales = invoiceRepository.sumCompletedSalesBetween(start, end);
+        BigDecimal totalSales = invoiceRepository.sumCompletedSalesBetween(start, end, companyId);
         result.put("total", totalSales);
 
-        List<Object[]> gatewaySales = invoiceRepository.salesByGateway(start, end);
+        List<Object[]> gatewaySales = invoiceRepository.salesByGateway(start, end, companyId);
         Map<String, BigDecimal> gatewayMap = new HashMap<>();
         for (Object[] row : gatewaySales) {
             String gateway = (String) row[0];
@@ -193,7 +196,7 @@ public class DashboardController {
                 .map(Map.Entry::getValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
 
-        List<Object[]> productSales = invoiceRepository.salesByProduct(start, end);
+        List<Object[]> productSales = invoiceRepository.salesByProduct(start, end, companyId);
         List<Map<String, Object>> productList = new ArrayList<>();
         for (Object[] row : productSales) {
             Map<String, Object> product = new HashMap<>();

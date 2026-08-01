@@ -20,15 +20,15 @@ export class InvoiceService {
     return this.http.get<Invoice>(`${this.apiUrl}/${id}`);
   }
 
-  getInvoicesByCustomerId(customerId: number): Observable<Invoice[]> {
-    return this.http.get<Invoice[]>(`${this.apiUrl}/customer/${customerId}`);
-  }
-
   createInvoice(request: InvoiceRequest): Observable<Invoice> {
     return this.http.post<Invoice>(this.apiUrl, request);
   }
 
   markCompleted(invoiceId: number, gateway: string = 'cash'): Observable<Invoice> {
     return this.http.patch<Invoice>(`${this.apiUrl}/${invoiceId}/complete?gateway=${gateway}`, {});
+  }
+
+  deleteInvoice(invoiceId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${invoiceId}`);
   }
 }

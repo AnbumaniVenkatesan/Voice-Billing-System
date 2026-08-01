@@ -30,6 +30,9 @@ public class Customer {
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

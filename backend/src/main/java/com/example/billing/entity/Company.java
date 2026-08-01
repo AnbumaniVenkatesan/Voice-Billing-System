@@ -94,6 +94,12 @@ public class Company {
     @Column(name = "bill_footer", length = 500)
     private String billFooter;
 
+    @Column(name = "invoice_header", columnDefinition = "TEXT")
+    private String invoiceHeader;
+
+    @Column(name = "invoice_footer", columnDefinition = "TEXT")
+    private String invoiceFooter;
+
     @Column(name = "receipt_message", length = 500)
     private String receiptMessage;
 

@@ -592,8 +592,27 @@ export interface ProductSearchResult {
 
     @media (max-width: 600px) {
       .dialog-overlay { padding: 12px; }
+      .dialog-container { max-height: 92vh; }
+      .dialog-header { padding: 16px 16px 0; }
+      .search-section { padding: 12px 16px 0; }
+      .dialog-footer { padding: 12px 16px; }
+      .close-btn {
+        width: 44px;
+        height: 44px;
+      }
       .product-grid { grid-template-columns: 1fr; }
       .dialog-body { max-height: 60vh; }
+      .select-product-btn,
+      .cancel-btn {
+        height: 48px;
+      }
+      .dialog-footer {
+        justify-content: stretch;
+      }
+      .cancel-btn {
+        flex: 1;
+        justify-content: center;
+      }
     }
   `]
 })

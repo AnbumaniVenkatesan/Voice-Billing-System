@@ -26,6 +26,9 @@ public class InvoiceItem {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "quantity", nullable = false)
     private Double quantity;
 

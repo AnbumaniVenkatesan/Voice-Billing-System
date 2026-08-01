@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -26,7 +27,11 @@ import { CompanyService } from '../../shared/services/company.service';
   template: `
     <div class="layout-container">
       <mat-sidenav-container class="sidenav-container">
-        <mat-sidenav #sidenav [mode]="'side'" opened class="sidenav">
+        <mat-sidenav #sidenav
+                     [mode]="isMobile ? 'over' : 'side'"
+                     [opened]="!isMobile || sidenavOpened"
+                     (openedChange)="sidenavOpened = $event"
+                     class="sidenav">
 
           <!-- Logo -->
           <div class="sidebar-logo">
@@ -41,48 +46,56 @@ import { CompanyService } from '../../shared/services/company.service';
 
           <!-- Menu -->
           <div class="sidebar-menu">
-            <a class="menu-item" routerLink="/dashboard" routerLinkActive="active-link">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">dashboard</mat-icon>
-              <span class="menu-label">Dashboard</span>
-            </a>
-            <a class="menu-item" routerLink="/customers" routerLinkActive="active-link"
-               *ngIf="showCustomers">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">people</mat-icon>
-              <span class="menu-label">Customers</span>
-            </a>
-            <a class="menu-item" routerLink="/products" routerLinkActive="active-link"
-               *ngIf="showProducts">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">inventory_2</mat-icon>
-              <span class="menu-label">Products</span>
-            </a>
-            <a class="menu-item" routerLink="/billing" routerLinkActive="active-link">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">receipt_long</mat-icon>
-              <span class="menu-label">Billing</span>
-            </a>
-            <a class="menu-item" routerLink="/voice-billing" routerLinkActive="active-link">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">mic</mat-icon>
-              <span class="menu-label">Voice Billing</span>
-            </a>
-            <a class="menu-item" routerLink="/invoices" routerLinkActive="active-link">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">description</mat-icon>
-              <span class="menu-label">Invoices</span>
-            </a>
-            <a class="menu-item" routerLink="/reports" routerLinkActive="active-link">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">bar_chart</mat-icon>
-              <span class="menu-label">Reports</span>
-            </a>
-            <a class="menu-item" routerLink="/company-settings" routerLinkActive="active-link">
-              <span class="menu-indicator"></span>
-              <mat-icon class="menu-icon">business</mat-icon>
-              <span class="menu-label">Company Settings</span>
-            </a>
+            <ng-container *ngIf="!isSuperAdmin">
+              <a class="menu-item" routerLink="/dashboard" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">dashboard</mat-icon>
+                <span class="menu-label">Dashboard</span>
+              </a>
+              <a class="menu-item" routerLink="/products" routerLinkActive="active-link"
+                 *ngIf="showProducts">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">inventory_2</mat-icon>
+                <span class="menu-label">Products</span>
+              </a>
+              <a class="menu-item" routerLink="/billing" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">receipt_long</mat-icon>
+                <span class="menu-label">Billing</span>
+              </a>
+              <a class="menu-item" routerLink="/voice-billing" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">mic</mat-icon>
+                <span class="menu-label">Voice Billing</span>
+              </a>
+              <a class="menu-item" routerLink="/invoices" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">description</mat-icon>
+                <span class="menu-label">Invoices</span>
+              </a>
+              <a class="menu-item" routerLink="/reports" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">bar_chart</mat-icon>
+                <span class="menu-label">Reports</span>
+              </a>
+              <a class="menu-item" routerLink="/company-settings" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">business</mat-icon>
+                <span class="menu-label">Company Information</span>
+              </a>
+            </ng-container>
+            <ng-container *ngIf="isSuperAdmin">
+              <a class="menu-item" routerLink="/admin/companies" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">business</mat-icon>
+                <span class="menu-label">Companies</span>
+              </a>
+              <a class="menu-item" routerLink="/admin/users" routerLinkActive="active-link">
+                <span class="menu-indicator"></span>
+                <mat-icon class="menu-icon">group</mat-icon>
+                <span class="menu-label">Users</span>
+              </a>
+            </ng-container>
           </div>
 
           <!-- Logout -->
@@ -93,7 +106,7 @@ import { CompanyService } from '../../shared/services/company.service';
               </div>
               <div class="user-details">
                 <span class="user-name">{{ currentUser?.username || 'User' }}</span>
-                <span class="user-role">Admin</span>
+                <span class="user-role">{{ roleLabel }}</span>
               </div>
             </div>
             <button class="logout-btn" (click)="logout()">
@@ -105,6 +118,12 @@ import { CompanyService } from '../../shared/services/company.service';
         </mat-sidenav>
 
         <mat-sidenav-content class="content">
+          <div class="mobile-topbar" *ngIf="isMobile">
+            <button class="hamburger-btn" (click)="sidenav.toggle()" aria-label="Toggle menu">
+              <mat-icon>menu</mat-icon>
+            </button>
+            <span class="mobile-brand">{{ companyName }}</span>
+          </div>
           <router-outlet></router-outlet>
         </mat-sidenav-content>
       </mat-sidenav-container>
@@ -339,14 +358,184 @@ import { CompanyService } from '../../shared/services/company.service';
     .content {
       background: #F8FAFC;
       min-height: 100vh;
+      position: relative;
+    }
+
+    /* Mobile top bar */
+    .mobile-topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      background: #FFFFFF;
+      border-bottom: 1px solid #F1F5F9;
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+      z-index: 60;
+    }
+
+    .hamburger-btn {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 12px;
+      background: #F1F5F9;
+      color: #1E293B;
+      cursor: pointer;
+      transition: background 250ms ease;
+    }
+
+    .hamburger-btn:hover {
+      background: #E2E8F0;
+    }
+
+    .hamburger-btn mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+
+    .mobile-brand {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1E293B;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Tablet: narrower sidebar */
+    @media (min-width: 768px) and (max-width: 1023.98px) {
+      .sidenav {
+        width: 240px;
+      }
+    }
+
+    /* Mobile: drawer over content with top bar */
+    @media (max-width: 767.98px) {
+      .content {
+        padding-top: 60px;
+      }
+
+      /* Compact black sidebar below the top bar, height fits content only */
+      .sidenav {
+        top: 60px;
+        bottom: auto;
+        width: 280px;
+        max-height: calc(100vh - 72px);
+        background: #0F172A;
+        border: 1px solid #1E293B;
+        border-top: none;
+        border-radius: 0 0 18px 0;
+        overflow: hidden;
+      }
+
+      .sidenav ::ng-deep .mat-drawer-inner-container {
+        height: auto;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .sidebar-logo {
+        padding: 18px 20px 16px;
+        border-bottom-color: #1E293B;
+      }
+
+      .logo-title {
+        color: #F8FAFC;
+      }
+
+      .logo-subtitle {
+        color: #94A3B8;
+      }
+
+      .sidebar-menu {
+        padding: 10px;
+      }
+
+      .menu-label {
+        color: #E2E8F0;
+      }
+
+      .menu-icon {
+        color: #94A3B8;
+      }
+
+      .menu-item:hover {
+        background: #1E293B;
+      }
+
+      .menu-item.active-link {
+        background: #1D4ED8;
+      }
+
+      .menu-item.active-link .menu-indicator {
+        background: #FFFFFF;
+      }
+
+      .menu-item.active-link .menu-icon {
+        color: #FFFFFF;
+      }
+
+      .menu-item.active-link .menu-label {
+        color: #FFFFFF;
+      }
+
+      .sidebar-footer {
+        padding: 12px 16px 16px;
+        border-top-color: #1E293B;
+      }
+
+      .user-name {
+        color: #F8FAFC;
+      }
+
+      .user-role {
+        color: #94A3B8;
+      }
+
+      .user-avatar {
+        background: #1E293B;
+        color: #93C5FD;
+      }
+
+      .logout-btn {
+        background: rgba(220, 38, 38, 0.16);
+        color: #FCA5A5;
+      }
+
+      .logout-btn:hover {
+        background: rgba(220, 38, 38, 0.28);
+      }
     }
   `]
 })
 export class LayoutComponent implements OnInit {
   currentUser: any;
   companyName = 'Smart Billing System';
-  showCustomers = false;
   showProducts = false;
+  isSuperAdmin = false;
+  roleLabel = 'Admin';
+  isMobile = window.innerWidth < 768;
+  sidenavOpened = !this.isMobile;
+
+  @HostListener('window:resize', ['$event'])
+  onResize(): void {
+    const mobile = window.innerWidth < 768;
+    if (mobile !== this.isMobile) {
+      this.isMobile = mobile;
+      this.sidenavOpened = !mobile;
+    }
+  }
 
   constructor(
     private authService: AuthService,
@@ -354,21 +543,31 @@ export class LayoutComponent implements OnInit {
     private companyService: CompanyService
   ) {
     this.currentUser = this.authService.getCurrentUser();
+    this.isSuperAdmin = this.authService.isSuperAdmin();
+    if (this.isSuperAdmin) {
+      this.roleLabel = 'Super Admin';
+    }
+
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        if (this.isMobile) {
+          this.sidenavOpened = false;
+        }
+      });
   }
 
   ngOnInit(): void {
+    if (this.isSuperAdmin) {
+      return;
+    }
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.companyName = data.companyName || 'Smart Billing System';
         const shopType = data.shopType;
-        if (shopType === 'Super Market') {
-          this.showCustomers = true;
-          this.showProducts = true;
-        } else if (shopType === 'Hotel') {
-          this.showCustomers = false;
+        if (shopType === 'Hotel' || shopType === 'Super Market') {
           this.showProducts = true;
         } else {
-          this.showCustomers = false;
           this.showProducts = false;
         }
       },
@@ -378,6 +577,7 @@ export class LayoutComponent implements OnInit {
 
   logout(): void {
     this.authService.logout();
+    this.companyService.clearCompany();
     this.router.navigate(['/login']);
   }
 }

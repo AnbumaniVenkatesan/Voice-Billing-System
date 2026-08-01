@@ -39,6 +39,9 @@ public class Product {
     @Column(name = "status", length = 20, nullable = false)
     private String status;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

@@ -21,8 +21,11 @@ public class Invoice {
     @Column(name = "invoice_id")
     private Long invoiceId;
 
-    @Column(name = "invoice_number", length = 50, unique = true, nullable = false)
+    @Column(name = "invoice_number", length = 50, nullable = false)
     private String invoiceNumber;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)

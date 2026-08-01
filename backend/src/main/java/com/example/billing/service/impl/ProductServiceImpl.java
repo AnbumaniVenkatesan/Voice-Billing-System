@@ -1,5 +1,6 @@
 package com.example.billing.service.impl;
 
+import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.ProductRequest;
 import com.example.billing.dto.response.ExcelImportResponse;
 import com.example.billing.dto.response.ProductResponse;
@@ -30,18 +31,33 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final ProductAliasRepository productAliasRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final CurrentUserProvider currentUserProvider;
+
+    private Long companyId() {
+        return currentUserProvider.getCompanyId();
+    }
+
+    private Product requireProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
+        if (product.getCompanyId() != null && !product.getCompanyId().equals(companyId())) {
+            throw new ResourceNotFoundException("Product", "id", id);
+        }
+        return product;
+    }
 
     @Override
     @Transactional
     public ProductResponse createProduct(ProductRequest request) {
         Product product;
+        Long cid = companyId();
 
         if (request.getProductId() != null) {
             jdbcTemplate.update(
-                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())",
+                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
                 request.getProductId(), request.getProductName(), request.getTamilName(),
                 request.getPrice(), request.getGstPercentage() != null ? request.getGstPercentage() : BigDecimal.ZERO,
-                request.getStock(), request.getStatus() != null ? request.getStatus() : "active");
+                request.getStock(), request.getStatus() != null ? request.getStatus() : "active", cid);
             product = productRepository.findById(request.getProductId()).orElseThrow();
         } else {
             product = Product.builder()
@@ -51,6 +67,7 @@ public class ProductServiceImpl implements ProductService {
                     .gstPercentage(request.getGstPercentage() != null ? request.getGstPercentage() : BigDecimal.ZERO)
                     .stock(request.getStock())
                     .status(request.getStatus() != null ? request.getStatus() : "active")
+                    .companyId(cid)
                     .aliases(new ArrayList<>())
                     .build();
             product = productRepository.save(product);
@@ -67,6 +84,7 @@ public class ProductServiceImpl implements ProductService {
                 ProductAlias alias = ProductAlias.builder()
                         .product(saved)
                         .aliasName(trimmed)
+                        .companyId(cid)
                         .build();
                 productAliasRepository.save(alias);
                 saved.getAliases().add(alias);
@@ -82,6 +100,7 @@ public class ProductServiceImpl implements ProductService {
                 ProductAlias alias = ProductAlias.builder()
                         .product(saved)
                         .aliasName(request.getTamilName().trim())
+                        .companyId(cid)
                         .build();
                 productAliasRepository.save(alias);
                 saved.getAliases().add(alias);
@@ -93,23 +112,20 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductResponse> getAllProducts() {
-        return productRepository.findAll().stream()
+        return productRepository.findByCompanyId(companyId()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
     public ProductResponse getProductById(Long id) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
-        return mapToResponse(product);
+        return mapToResponse(requireProduct(id));
     }
 
     @Override
     @Transactional
     public ProductResponse updateProduct(Long id, ProductRequest request) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
+        Product product = requireProduct(id);
 
         product.setProductName(request.getProductName());
         product.setTamilName(request.getTamilName());
@@ -131,6 +147,7 @@ public class ProductServiceImpl implements ProductService {
                 ProductAlias alias = ProductAlias.builder()
                         .product(updated)
                         .aliasName(trimmed)
+                        .companyId(companyId())
                         .build();
                 productAliasRepository.save(alias);
                 updated.getAliases().add(alias);
@@ -146,6 +163,7 @@ public class ProductServiceImpl implements ProductService {
                 ProductAlias alias = ProductAlias.builder()
                         .product(updated)
                         .aliasName(updated.getTamilName().trim())
+                        .companyId(companyId())
                         .build();
                 productAliasRepository.save(alias);
                 updated.getAliases().add(alias);
@@ -158,15 +176,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void deleteProduct(Long id) {
-        if (!productRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Product", "id", id);
-        }
+        requireProduct(id);
         productRepository.deleteById(id);
     }
 
     @Override
     public List<ProductResponse> searchProducts(String keyword) {
-        return productRepository.searchByKeyword(keyword).stream()
+        return productRepository.searchByKeyword(keyword, companyId()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -179,10 +195,10 @@ public class ProductServiceImpl implements ProductService {
         int totalAliases = 0;
         int duplicatesSkipped = 0;
 
-        Set<String> existingNames = productRepository.findAll().stream()
+        Set<String> existingNames = productRepository.findByCompanyId(companyId()).stream()
                 .map(p -> p.getProductName().trim().toLowerCase())
                 .collect(Collectors.toSet());
-        Set<String> existingAliases = productAliasRepository.findAll().stream()
+        Set<String> existingAliases = productAliasRepository.findByCompanyId(companyId()).stream()
                 .map(a -> a.getAliasName().trim().toLowerCase())
                 .collect(Collectors.toSet());
 
@@ -382,10 +398,11 @@ public class ProductServiceImpl implements ProductService {
                                        java.math.BigDecimal price, java.math.BigDecimal gstPercentage,
                                        int stock, String status, List<String> aliasList) {
         Product saved;
+        Long cid = companyId();
         if (productId != null) {
             jdbcTemplate.update(
-                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())",
-                productId, productName, tamilName, price, gstPercentage, stock, status);
+                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                productId, productName, tamilName, price, gstPercentage, stock, status, cid);
             saved = productRepository.findById(productId).orElseThrow();
         } else {
             Product product = Product.builder()
@@ -395,6 +412,7 @@ public class ProductServiceImpl implements ProductService {
                     .gstPercentage(gstPercentage)
                     .stock(stock)
                     .status(status)
+                    .companyId(cid)
                     .aliases(new ArrayList<>())
                     .build();
             saved = productRepository.save(product);
@@ -410,6 +428,7 @@ public class ProductServiceImpl implements ProductService {
             ProductAlias alias = ProductAlias.builder()
                     .product(saved)
                     .aliasName(aliasName.trim())
+                    .companyId(cid)
                     .build();
             productAliasRepository.save(alias);
             saved.getAliases().add(alias);
@@ -422,6 +441,7 @@ public class ProductServiceImpl implements ProductService {
                 ProductAlias alias = ProductAlias.builder()
                         .product(saved)
                         .aliasName(tamilName.trim())
+                        .companyId(cid)
                         .build();
                 productAliasRepository.save(alias);
                 saved.getAliases().add(alias);
@@ -437,7 +457,7 @@ public class ProductServiceImpl implements ProductService {
         List<String> errors = new ArrayList<>();
         int totalRows = 0;
 
-        Map<String, Product> productByName = productRepository.findAll().stream()
+        Map<String, Product> productByName = productRepository.findByCompanyId(companyId()).stream()
                 .collect(Collectors.toMap(p -> p.getProductName().trim().toLowerCase(), p -> p, (a, b) -> a));
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
@@ -587,9 +607,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<String> getAliases(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
-        return productAliasRepository.findAllByProductId(productId).stream()
+        requireProduct(productId);
+        return productAliasRepository.findAllByProductId(productId, companyId()).stream()
                 .map(ProductAlias::getAliasName)
                 .collect(Collectors.toList());
     }
@@ -597,8 +616,8 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public List<String> addAlias(Long productId, String aliasName) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+        Product product = requireProduct(productId);
+        Long cid = companyId();
         String normalized = aliasName.trim().toLowerCase();
         if (normalized.isEmpty()) {
             throw new RuntimeException("Alias cannot be empty");
@@ -606,7 +625,7 @@ public class ProductServiceImpl implements ProductService {
         if (normalized.equals(product.getProductName().trim().toLowerCase())) {
             throw new RuntimeException("Alias is the same as the product name");
         }
-        boolean exists = productAliasRepository.findAllByProductId(productId).stream()
+        boolean exists = productAliasRepository.findAllByProductId(productId, cid).stream()
                 .anyMatch(a -> a.getAliasName().trim().toLowerCase().equals(normalized));
         if (exists) {
             throw new RuntimeException("Alias already exists for this product");
@@ -614,6 +633,7 @@ public class ProductServiceImpl implements ProductService {
         ProductAlias alias = ProductAlias.builder()
                 .product(product)
                 .aliasName(aliasName.trim())
+                .companyId(cid)
                 .build();
         productAliasRepository.save(alias);
         return getAliases(productId);
@@ -624,24 +644,28 @@ public class ProductServiceImpl implements ProductService {
     public void deleteAlias(Long aliasId) {
         ProductAlias alias = productAliasRepository.findById(aliasId)
                 .orElseThrow(() -> new ResourceNotFoundException("Alias", "id", aliasId));
+        if (alias.getCompanyId() != null && !alias.getCompanyId().equals(companyId())) {
+            throw new ResourceNotFoundException("Alias", "id", aliasId);
+        }
         productAliasRepository.deleteById(aliasId);
     }
 
     @Override
     @Transactional
     public void selfLearn(String spokenText, Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+        Product product = requireProduct(productId);
+        Long cid = companyId();
         String normalized = spokenText.trim().toLowerCase();
         if (normalized.isEmpty()) return;
         if (normalized.equals(product.getProductName().trim().toLowerCase())) return;
-        boolean exists = productAliasRepository.findByAliasNameIgnoreCase(normalized).stream()
+        boolean exists = productAliasRepository.findByAliasNameIgnoreCase(normalized, cid).stream()
                 .anyMatch(a -> a.getProduct().getProductId().equals(productId));
         if (!exists) {
             ProductAlias alias = ProductAlias.builder()
                     .product(product)
                     .aliasName(spokenText.trim())
                     .language("LEARNED")
+                    .companyId(cid)
                     .build();
             productAliasRepository.save(alias);
         }

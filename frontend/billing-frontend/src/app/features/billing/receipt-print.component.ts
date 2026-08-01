@@ -28,6 +28,8 @@ export class ReceiptPrintComponent {
     const pincode = company?.pincode || '';
     const footer = company?.billFooter || 'Thank You!';
     const receiptMsg = company?.receiptMessage || 'Visit Again';
+    const invHeader = company?.invoiceHeader || '';
+    const invFooter = company?.invoiceFooter || '';
     const invPrefix = company?.invoicePrefix || 'INV';
 
     const addressParts = [addr1, addr2, [city, district].filter(Boolean).join(' - '), [state, pincode].filter(Boolean).join(' - ')].filter(Boolean);
@@ -129,6 +131,7 @@ export class ReceiptPrintComponent {
   ${email ? '<div class="shop-info">' + email + '</div>' : ''}
   ${gst ? '<div class="shop-info">GSTIN: ' + gst + '</div>' : ''}
   ${website ? '<div class="shop-info">' + website + '</div>' : ''}
+  ${invHeader ? '<div class="shop-info" style="margin-top:4px;white-space:pre-wrap;">' + invHeader + '</div>' : ''}
 </div>
 
 <div class="double-line"></div>
@@ -163,6 +166,7 @@ export class ReceiptPrintComponent {
   <div class="footer-text" style="font-size: 10px;">* Prices are inclusive of GST</div>
   <div class="footer-text bold" style="margin-top:4px;">${footer}</div>
   <div class="footer-text" style="margin-top:2px;">${receiptMsg}</div>
+  ${invFooter ? '<div class="footer-text" style="margin-top:6px;white-space:pre-wrap;">' + invFooter + '</div>' : ''}
 </div>
 
 </body>

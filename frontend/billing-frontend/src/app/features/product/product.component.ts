@@ -53,7 +53,8 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
               <div class="form-group">
                 <label class="field-label">Product Name</label>
                 <input class="form-input" placeholder="Enter product name"
-                       [(ngModel)]="formData.productName" name="productName" required>
+                       [(ngModel)]="formData.productName" name="productName"
+                       (input)="onProductNameInput()" required>
               </div>
 
               <div class="form-group">
@@ -91,15 +92,13 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
               </div>
 
               <div class="btn-group">
-                <button type="submit" class="btn btn-primary" [disabled]="!formData.productName.trim()">
-                  <mat-icon>add</mat-icon> {{ editingId ? 'Update Product' : 'Add Product' }}
-                </button>
-                <button type="button" class="btn btn-secondary" (click)="editingId ? saveProduct() : null"
-                        [disabled]="!editingId">
-                  <mat-icon>edit</mat-icon> Update Product
+                <button type="submit" class="btn btn-primary"
+                        [disabled]="!formData.productName.trim()">
+                  <mat-icon>{{ editingId ? 'edit' : 'add' }}</mat-icon>
+                  {{ editingId ? 'Update Product' : 'Add Product' }}
                 </button>
                 <button type="button" class="btn btn-neutral" (click)="cancelForm()">
-                  Clear
+                  <mat-icon>clear</mat-icon> Clear
                 </button>
               </div>
             </form>
@@ -110,17 +109,17 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
         <div class="right-panel">
           <div class="list-card">
 
-            <div class="excel-top">
-              <div class="excel-top-btns">
-                <button type="button" class="btn btn-excel" (click)="fileInput.click()">
-                  <mat-icon>upload_file</mat-icon> Import Excel
-                </button>
-                <input #fileInput type="file" accept=".xlsx,.xls" hidden (change)="onFileSelected($event)">
-                <button type="button" class="btn btn-excel" (click)="stockFileInput.click()">
-                  <mat-icon>upload_file</mat-icon> Update from Excel
-                </button>
-                <input #stockFileInput type="file" accept=".xlsx,.xls" hidden (change)="onStockFileSelected($event)">
-              </div>
+            <div class="excel-actions">
+              <button type="button" class="btn btn-excel" (click)="fileInput.click()">
+                <mat-icon>upload_file</mat-icon>
+                <span class="lbl-long">Import Excel</span><span class="lbl-short">Import</span>
+              </button>
+              <input #fileInput type="file" accept=".xlsx,.xls" hidden (change)="onFileSelected($event)">
+              <button type="button" class="btn btn-excel" (click)="stockFileInput.click()">
+                <mat-icon>upload_file</mat-icon>
+                <span class="lbl-long">Update from Excel</span><span class="lbl-short">Update</span>
+              </button>
+              <input #stockFileInput type="file" accept=".xlsx,.xls" hidden (change)="onStockFileSelected($event)">
             </div>
 
             <div class="search-box">
@@ -169,15 +168,40 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                 <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
               </table>
-
-              <div class="empty-state" *ngIf="dataSource.filteredData.length === 0">
-                <mat-icon class="empty-ico">inventory_2</mat-icon>
-                <p class="empty-title">No products found</p>
-                <p class="empty-desc">Add your first product using the form.</p>
-              </div>
-
-              <mat-paginator [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons class="custom-paginator"></mat-paginator>
             </div>
+
+            <div class="empty-state" *ngIf="dataSource.filteredData.length === 0">
+              <mat-icon class="empty-ico">inventory_2</mat-icon>
+              <p class="empty-title">No products found</p>
+              <p class="empty-desc">Add your first product using the form.</p>
+            </div>
+
+            <div class="mobile-product-list" *ngIf="dataSource.filteredData.length > 0">
+              <div class="mobile-product-card" *ngFor="let p of displayedProducts">
+                <div class="mpc-main">
+                  <div class="product-avatar" [style.background]="getProductColor(p.productName)">
+                    {{ p.productName.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="mpc-info">
+                    <span class="product-name">{{ p.productName }}</span>
+                    <span class="product-tamil" *ngIf="p.tamilName">{{ p.tamilName }}</span>
+                  </div>
+                </div>
+                <div class="mpc-bottom">
+                  <span class="price-text">₹{{ p.price | number:'1.2-2' }}</span>
+                  <div class="mpc-actions">
+                    <button class="act-btn act-edit" matTooltip="Edit" (click)="editProduct(p)">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button class="act-btn act-delete" matTooltip="Delete" (click)="deleteProduct(p.productId)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <mat-paginator [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons class="custom-paginator"></mat-paginator>
 
           </div>
         </div>
@@ -543,10 +567,13 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       display: flex;
       gap: 12px;
       margin-top: 4px;
+      flex-wrap: wrap;
     }
 
     .btn {
-      flex: 1;
+      flex: 0 1 auto;
+      min-width: 160px;
+      max-width: 280px;
       height: 52px;
       border-radius: 12px;
       font-size: 15px;
@@ -610,7 +637,10 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
     }
 
     .btn-excel {
-      height: 44px !important;
+      height: 44px;
+      width: 175px;
+      min-width: 175px;
+      max-width: 175px;
       font-size: 13px !important;
       font-weight: 500 !important;
       background: #F3F4F6 !important;
@@ -624,28 +654,27 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       border-color: #BFDBFE !important;
     }
 
-    /* ====== EXCEL TOP ====== */
-    .excel-top {
+    .btn-excel mat-icon {
+      margin-right: 6px;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ====== EXCEL ACTIONS ====== */
+    .excel-actions {
       display: flex;
+      justify-content: center;
       align-items: center;
-      justify-content: flex-end;
+      gap: 16px;
+      width: 100%;
       margin-bottom: 20px;
       padding-bottom: 20px;
       border-bottom: 1px solid #F1F5F9;
     }
 
-    .excel-top-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #6B7280;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin: 0;
-    }
-
-    .excel-top-btns {
-      display: flex;
-      gap: 8px;
+    .lbl-short {
+      display: none;
     }
 
     /* ====== SEARCH ====== */
@@ -827,6 +856,90 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       border-top: 1px solid #F1F5F9;
     }
 
+    /* ====== MOBILE PRODUCT CARDS ====== */
+    .mobile-product-list {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mobile-product-card {
+      background: #fff;
+      border: 1px solid #F1F5F9;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    }
+
+    .mpc-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .mpc-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .mpc-info .product-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1E293B;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mpc-info .product-tamil {
+      font-size: 12px;
+      color: #64748B;
+    }
+
+    .mpc-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #F1F5F9;
+      padding-top: 12px;
+    }
+
+    .mpc-bottom .price-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1E293B;
+    }
+
+    .mpc-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .act-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: transparent;
+      transition: background 0.2s;
+    }
+
+    .act-btn mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
     /* ====== DIALOGS ====== */
     .import-progress {
       margin: 20px 0;
@@ -959,12 +1072,71 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       .list-card {
         padding: 20px;
       }
-      .btn-group {
-        flex-direction: column;
-      }
       .result-summary {
         flex-wrap: wrap;
         gap: 12px;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      .page-title {
+        font-size: 24px;
+      }
+      .table-wrapper {
+        display: none;
+      }
+      .mobile-product-list {
+        display: flex;
+      }
+      .custom-paginator {
+        margin-top: 12px;
+      }
+      .excel-actions {
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .excel-actions .btn-excel {
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 175px;
+      }
+      .lbl-long {
+        display: none;
+      }
+      .lbl-short {
+        display: inline;
+      }
+      .form-card-header {
+        gap: 12px;
+      }
+      .form-title {
+        font-size: 22px;
+      }
+      .alias-input-row {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .products-page {
+        padding: 12px;
+      }
+      .form-card,
+      .list-card {
+        padding: 16px;
+        border-radius: 16px;
+      }
+      .excel-actions {
+        gap: 10px;
+      }
+      .excel-actions .btn-excel {
+        min-width: 0;
+        padding: 0 8px;
+      }
+      .btn-icon-add {
+        width: 44px;
+        height: 44px;
       }
     }
   `]
@@ -1021,6 +1193,41 @@ export class ProductComponent implements OnInit, OnDestroy {
         this.dataSource.sort = this.sort;
       }
     });
+  }
+
+  get displayedProducts(): Product[] {
+    const filtered = this.dataSource.filteredData;
+    if (!filtered || filtered.length === 0) return [];
+    const paginator = this.dataSource.paginator;
+    if (!paginator) return filtered;
+    const start = paginator.pageIndex * paginator.pageSize;
+    return filtered.slice(start, start + paginator.pageSize);
+  }
+
+  onProductNameInput(): void {
+    const name = (this.formData.productName || '').trim().toLowerCase();
+    if (!name) {
+      this.editingId = null;
+      return;
+    }
+    const existing = this.dataSource.data.find(p =>
+      (p.productName || '').trim().toLowerCase() === name
+    );
+    if (existing) {
+      if (existing.productId !== this.editingId) {
+        this.editingId = existing.productId;
+        this.newAliasInput = '';
+        this.formData.productId = existing.productId;
+        this.formData.tamilName = existing.tamilName;
+        this.formData.price = existing.price;
+        this.formData.gstPercentage = existing.gstPercentage;
+        this.formData.stock = existing.stock;
+        this.formData.status = existing.status;
+        this.formData.aliases = [...new Set((existing.aliases || []).map(a => a.trim()).filter(a => a.length > 0))];
+      }
+    } else {
+      this.editingId = null;
+    }
   }
 
   applyFilter(event: Event): void {

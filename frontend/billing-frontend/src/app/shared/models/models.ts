@@ -13,23 +13,14 @@ export interface LoginResponse {
   token: string;
   username: string;
   role: string;
+  companyId: number | null;
   expiresAt: string;
 }
 
-export interface Customer {
-  customerId: number;
-  customerName: string;
-  phone: string;
-  email: string;
-  address: string;
-  createdAt: string;
-}
-
-export interface CustomerRequest {
-  customerName: string;
-  phone: string;
-  email: string;
-  address: string;
+export interface AuthStatus {
+  hasUsers: boolean;
+  hasSuperAdmin: boolean;
+  hasCompanies: boolean;
 }
 
 export interface Product {
@@ -152,7 +143,6 @@ export interface PaymentRequest {
 }
 
 export interface DashboardData {
-  totalCustomers: number;
   totalProducts: number;
   todaySales: number;
   monthlySales: number;

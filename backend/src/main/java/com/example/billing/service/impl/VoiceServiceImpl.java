@@ -1,5 +1,6 @@
 package com.example.billing.service.impl;
 
+import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.VoiceRequest;
 import com.example.billing.dto.response.VoiceResponse;
 import com.example.billing.entity.Product;
@@ -31,6 +32,7 @@ public class VoiceServiceImpl implements VoiceService {
 
     private final ProductRepository productRepository;
     private final ProductAliasRepository productAliasRepository;
+    private final CurrentUserProvider currentUserProvider;
 
     @Qualifier("voiceBillingExecutor")
     private final Executor voiceBillingExecutor;
@@ -211,6 +213,7 @@ public class VoiceServiceImpl implements VoiceService {
     public VoiceResponse processVoiceCommand(VoiceRequest request) {
         long totalStart = System.currentTimeMillis();
         String originalText = request.getText().trim();
+        Long cid = currentUserProvider.getCompanyId();
 
         log.info("[Voice] ════════════════════════════════════════════");
         log.info("[Voice] Received Text  : \"{}\"", request.getText());
@@ -218,7 +221,7 @@ public class VoiceServiceImpl implements VoiceService {
 
         // STEP 1: Fetch ALL active products + aliases FIRST (needed for translation)
         long dbStart = System.currentTimeMillis();
-        List<Product> allActiveProducts = productRepository.findByStatus("active");
+        List<Product> allActiveProducts = productRepository.findByStatusAndCompanyId("active", cid);
 
         Map<String, Product> dbLookup = new LinkedHashMap<>();
         for (Product p : allActiveProducts) {
@@ -230,7 +233,7 @@ public class VoiceServiceImpl implements VoiceService {
             }
         }
 
-        List<ProductAlias> allAliases = productAliasRepository.findAll();
+        List<ProductAlias> allAliases = productAliasRepository.findByCompanyId(cid);
         for (ProductAlias pa : allAliases) {
             if (pa.getAliasName() != null && pa.getProduct() != null
                     && "active".equals(pa.getProduct().getStatus())) {
@@ -282,7 +285,7 @@ public class VoiceServiceImpl implements VoiceService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        Map<String, Product> aliasProductMap = batchFetchByAliases(aliases);
+        Map<String, Product> aliasProductMap = batchFetchByAliases(aliases, cid);
 
         // Also add DB lookup entries for the parsed product words
         for (ParsedItem item : parsedItems) {
@@ -366,7 +369,7 @@ public class VoiceServiceImpl implements VoiceService {
     // STEP 2 & 3: Batch database queries
     // =========================================================================
 
-    private Map<String, Product> batchFetchByAliases(List<String> aliases) {
+    private Map<String, Product> batchFetchByAliases(List<String> aliases, Long cid) {
         if (aliases.isEmpty()) {
             return new HashMap<>();
         }
@@ -376,7 +379,7 @@ public class VoiceServiceImpl implements VoiceService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        List<ProductAlias> productAliases = productAliasRepository.findByAliasNamesIn(lowerAliases);
+        List<ProductAlias> productAliases = productAliasRepository.findByAliasNamesIn(lowerAliases, cid);
 
         return productAliases.stream()
                 .filter(pa -> pa.getProduct() != null && "active".equals(pa.getProduct().getStatus()))
@@ -557,7 +560,7 @@ public class VoiceServiceImpl implements VoiceService {
         }
 
         // Check DB aliases for this product
-        List<ProductAlias> productAliases = productAliasRepository.findByProduct_ProductId(product.getProductId());
+        List<ProductAlias> productAliases = productAliasRepository.findByProduct_ProductIdAndCompanyId(product.getProductId(), currentUserProvider.getCompanyId());
         for (ProductAlias pa : productAliases) {
             if (pa.getAliasName() != null && pa.getAliasName().toLowerCase().equals(cleaned)) {
                 score += 85;
@@ -635,11 +638,15 @@ public class VoiceServiceImpl implements VoiceService {
     @Override
     public void saveVoiceAlias(String spokenText, Long productId) {
         String cleaned = spokenText.trim().toLowerCase();
+        Long cid = currentUserProvider.getCompanyId();
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
+        if (product.getCompanyId() != null && !product.getCompanyId().equals(cid)) {
+            throw new RuntimeException("Product not found: " + productId);
+        }
 
-        List<ProductAlias> existing = productAliasRepository.findByAliasNameIgnoreCase(cleaned);
+        List<ProductAlias> existing = productAliasRepository.findByAliasNameIgnoreCase(cleaned, cid);
         boolean alreadyExists = existing.stream()
                 .anyMatch(pa -> pa.getProduct().getProductId().equals(productId));
         if (alreadyExists) {
@@ -649,6 +656,7 @@ public class VoiceServiceImpl implements VoiceService {
         ProductAlias alias = ProductAlias.builder()
                 .product(product)
                 .aliasName(cleaned)
+                .companyId(cid)
                 .build();
         productAliasRepository.save(alias);
     }

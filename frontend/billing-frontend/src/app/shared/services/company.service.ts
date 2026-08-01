@@ -41,6 +41,14 @@ export class CompanyService {
     );
   }
 
+  setupCompany(request: any): Observable<Company> {
+    return this.http.post<Company>(`${this.apiUrl}/setup`, request);
+  }
+
+  clearCompany(): void {
+    this.companySubject.next(null);
+  }
+
   updateCompany(id: number, request: Partial<Company>): Observable<Company> {
     return this.http.put<Company>(`${this.apiUrl}/${id}`, request).pipe(
       tap(company => this.companySubject.next(company))
@@ -51,6 +59,12 @@ export class CompanyService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<Company>(`${this.apiUrl}/logo`, formData).pipe(
+      tap(company => this.companySubject.next(company))
+    );
+  }
+
+  removeLogo(): Observable<Company> {
+    return this.http.delete<Company>(`${this.apiUrl}/logo`).pipe(
       tap(company => this.companySubject.next(company))
     );
   }

@@ -6,9 +6,11 @@ import java.util.List;
 
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
-    List<Customer> findByCustomerNameContainingIgnoreCase(String name);
+    List<Customer> findByCustomerNameContainingIgnoreCaseAndCompanyId(String name, Long companyId);
 
-    boolean existsByPhone(String phone);
+    boolean existsByPhoneAndCompanyId(String phone, Long companyId);
 
-    boolean existsByEmail(String email);
+    boolean existsByEmailAndCompanyId(String email, Long companyId);
+
+    List<Customer> findByCompanyId(Long companyId);
 }

@@ -37,5 +37,7 @@ public class CompanyResponse {
     private BigDecimal taxPercentage;
     private String billFooter;
     private String receiptMessage;
+    private String invoiceHeader;
+    private String invoiceFooter;
     private Boolean isActive;
 }

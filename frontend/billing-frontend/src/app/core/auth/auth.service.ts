@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject, tap } from 'rxjs';
-import { LoginRequest, LoginResponse } from '../../shared/models/models';
+import { LoginRequest, LoginResponse, AuthStatus } from '../../shared/models/models';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -47,7 +47,23 @@ export class AuthService {
     return this.currentUserSubject.value;
   }
 
-  getStatus(): Observable<{ hasUsers: boolean }> {
-    return this.http.get<{ hasUsers: boolean }>(`${this.apiUrl}/status`);
+  getRole(): string | null {
+    return this.currentUserSubject.value?.role || null;
+  }
+
+  isSuperAdmin(): boolean {
+    return this.getRole() === 'SUPER_ADMIN';
+  }
+
+  getCompanyId(): number | null {
+    return this.currentUserSubject.value?.companyId ?? null;
+  }
+
+  getStatus(): Observable<AuthStatus> {
+    return this.http.get<AuthStatus>(`${this.apiUrl}/status`);
+  }
+
+  createSuperAdmin(username: string, password: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/create-super-admin`, { username, password });
   }
 }

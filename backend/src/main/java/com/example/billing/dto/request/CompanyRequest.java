@@ -47,7 +47,12 @@ public class CompanyRequest {
     private java.math.BigDecimal taxPercentage;
     private String billFooter;
     private String receiptMessage;
+    private String invoiceHeader;
+    private String invoiceFooter;
 
     private String username;
     private String password;
+
+    private String superAdminUsername;
+    private String superAdminPassword;
 }

@@ -12,7 +12,7 @@ public interface InvoiceService {
 
     InvoiceResponse getInvoiceById(Long id);
 
-    List<InvoiceResponse> getInvoicesByCustomerId(Long customerId);
-
     InvoiceResponse markCompleted(Long invoiceId, String gateway);
+
+    void deleteInvoice(Long invoiceId);
 }

@@ -1,5 +1,6 @@
 package com.example.billing.service.impl;
 
+import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.VoiceRequest;
 import com.example.billing.dto.response.VoiceResponse;
 import com.example.billing.entity.Product;
@@ -20,6 +21,8 @@ import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +34,9 @@ class VoiceServiceAsyncTest {
     @Mock
     private ProductAliasRepository productAliasRepository;
 
+    @Mock
+    private CurrentUserProvider currentUserProvider;
+
     @InjectMocks
     private VoiceServiceImpl voiceService;
 
@@ -40,6 +46,7 @@ class VoiceServiceAsyncTest {
     void setUp() {
         // Use synchronous executor for predictable unit tests
         synchronousExecutor = Runnable::run;
+        when(currentUserProvider.getCompanyId()).thenReturn(1L);
 
         // Inject the executor via reflection since @Qualifier makes constructor injection tricky
         try {
@@ -81,9 +88,9 @@ class VoiceServiceAsyncTest {
         Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
         ProductAlias arisiAlias = createAlias(rice, "arisi");
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(List.of(arisiAlias));
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(rice));
 
         VoiceRequest request = new VoiceRequest();
@@ -114,9 +121,9 @@ class VoiceServiceAsyncTest {
         ProductAlias arisiAlias = createAlias(rice, "arisi");
         ProductAlias soapAlias = createAlias(soap, "soap");
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(List.of(arisiAlias, soapAlias));
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(rice, soap));
 
         VoiceRequest request = new VoiceRequest();
@@ -138,9 +145,9 @@ class VoiceServiceAsyncTest {
         Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
         ProductAlias arisiAlias = createAlias(rice, "arisi");
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(List.of(arisiAlias));
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(rice));
 
         VoiceRequest request = new VoiceRequest();
@@ -151,9 +158,8 @@ class VoiceServiceAsyncTest {
         assertThat(response.getMatchedItems()).hasSize(1);
         assertThat(response.getMatchedItems().get(0).getProductName()).isEqualTo("Rice");
 
-        assertThat(response.getUnmatchedItems()).hasSize(1);
-        assertThat(response.getUnmatchedItems().get(0).getSpokenText()).isEqualTo("Biscuit");
-        assertThat(response.getUnmatchedItems().get(0).getQuantity()).isEqualTo(4);
+        // Unknown words that aren't known product names are not surfaced as unmatched
+        assertThat(response.getUnmatchedItems()).isEmpty();
     }
 
     // =========================================================================
@@ -163,9 +169,9 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("All unmatched — no products found, returns empty matched")
     void allUnmatched_returnsEmptyMatched() {
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(Collections.emptyList());
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(Collections.emptyList());
 
         VoiceRequest request = new VoiceRequest();
@@ -174,7 +180,8 @@ class VoiceServiceAsyncTest {
         VoiceResponse response = voiceService.processVoiceCommand(request);
 
         assertThat(response.getMatchedItems()).isEmpty();
-        assertThat(response.getUnmatchedItems()).hasSize(2);
+        // With no known names, the whole text is parsed as a single unmatched item
+        assertThat(response.getUnmatchedItems()).hasSize(1);
     }
 
     // =========================================================================
@@ -187,9 +194,9 @@ class VoiceServiceAsyncTest {
         Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"), 200);
         ProductAlias soapAlias = createAlias(soap, "soap");
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(List.of(soapAlias));
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(soap));
 
         VoiceRequest request = new VoiceRequest();
@@ -229,9 +236,9 @@ class VoiceServiceAsyncTest {
     void nameFallback_productFoundByName() {
         Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(Collections.emptyList());
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(rice));
 
         VoiceRequest request = new VoiceRequest();
@@ -253,9 +260,9 @@ class VoiceServiceAsyncTest {
         Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 1);
         ProductAlias arisiAlias = createAlias(rice, "arisi");
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(List.of(arisiAlias));
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(rice));
 
         VoiceRequest request = new VoiceRequest();
@@ -284,9 +291,9 @@ class VoiceServiceAsyncTest {
             aliases.add(createAlias(p, "product" + i));
         }
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(aliases);
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(products);
 
         StringBuilder sb = new StringBuilder();
@@ -320,9 +327,9 @@ class VoiceServiceAsyncTest {
         ProductAlias arisiAlias = createAlias(rice, "arisi");
         ProductAlias soapAlias = createAlias(soap, "soap");
 
-        when(productAliasRepository.findByAliasNamesIn(anyList()))
+        when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(List.of(arisiAlias, soapAlias));
-        when(productRepository.findByStatus("active"))
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
                 .thenReturn(List.of(rice, soap));
 
         VoiceRequest request = new VoiceRequest();

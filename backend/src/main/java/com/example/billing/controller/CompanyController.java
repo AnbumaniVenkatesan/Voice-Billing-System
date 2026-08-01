@@ -19,8 +19,13 @@ public class CompanyController {
 
     @GetMapping
     public ResponseEntity<CompanyResponse> getCompany() {
-        CompanyResponse response = companyService.getActiveCompany();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(companyService.getMyCompany());
+    }
+
+    @PostMapping("/setup")
+    public ResponseEntity<CompanyResponse> setupCompany(@Valid @RequestBody CompanyRequest request) {
+        CompanyResponse response = companyService.setupCompany(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping
@@ -43,11 +48,36 @@ public class CompanyController {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        CompanyResponse activeCompany = companyService.getActiveCompany();
-        if (activeCompany.getCompanyId() == null) {
+        CompanyResponse myCompany = companyService.getMyCompany();
+        if (myCompany.getCompanyId() == null) {
             return ResponseEntity.badRequest().build();
         }
-        CompanyResponse response = companyService.uploadLogo(activeCompany.getCompanyId(), file);
+        CompanyResponse response = companyService.uploadLogo(myCompany.getCompanyId(), file);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/logo")
+    public ResponseEntity<CompanyResponse> uploadLogoForCompany(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        CompanyResponse response = companyService.uploadLogo(id, file);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/logo")
+    public ResponseEntity<CompanyResponse> removeLogo() {
+        CompanyResponse myCompany = companyService.getMyCompany();
+        if (myCompany.getCompanyId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(companyService.removeLogo(myCompany.getCompanyId()));
+    }
+
+    @DeleteMapping("/{id}/logo")
+    public ResponseEntity<CompanyResponse> removeLogoForCompany(@PathVariable Long id) {
+        return ResponseEntity.ok(companyService.removeLogo(id));
     }
 }

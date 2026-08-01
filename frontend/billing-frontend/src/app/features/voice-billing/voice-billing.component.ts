@@ -5,18 +5,16 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { CustomerService } from '../../shared/services/customer.service';
 import { VoiceService } from '../../shared/services/voice.service';
 import { InvoiceService } from '../../shared/services/invoice.service';
 import { CompanyService } from '../../shared/services/company.service';
-import { Customer, VoiceItem, VoiceResponse, Invoice, UnmatchedItem, SuggestedProduct, Product } from '../../shared/models/models';
+import { VoiceItem, VoiceResponse, Invoice, UnmatchedItem, SuggestedProduct, Product } from '../../shared/models/models';
 import { Company } from '../../shared/models/company.model';
 import { ProductSearchDialogComponent, ProductSearchResult } from './product-search-dialog.component';
 import { QrDialogComponent } from '../billing/qr-dialog.component';
@@ -31,7 +29,7 @@ declare var webkitSpeechRecognition: any;
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatCardModule, MatButtonModule,
-    MatIconModule, MatInputModule, MatAutocompleteModule, MatFormFieldModule,
+    MatIconModule, MatInputModule, MatFormFieldModule,
     MatRadioModule, MatSnackBarModule, MatDialogModule, MatProgressBarModule
   ],
   template: `
@@ -43,10 +41,14 @@ declare var webkitSpeechRecognition: any;
           <div class="header-icon-wrap">
             <mat-icon>record_voice_over</mat-icon>
           </div>
-          <div>
+          <div class="header-title-block">
             <h1>Voice Billing</h1>
             <p class="header-subtitle">Speak to add products instantly</p>
           </div>
+          <button type="button" class="mic-button mic-inline"
+                  [class.active]="isListening" (click)="toggleVoice()">
+            <mat-icon>{{ isListening ? 'mic' : 'mic_off' }}</mat-icon>
+          </button>
         </div>
         <div class="header-right">
           <span class="status-badge active" *ngIf="isListening">
@@ -64,32 +66,6 @@ declare var webkitSpeechRecognition: any;
 
         <!-- ═══════════ LEFT COLUMN: Voice Controls ═══════════ -->
         <div class="left-column">
-
-          <!-- Customer Search Card -->
-          <div class="card" *ngIf="!isHotel">
-            <div class="card-header">
-              <mat-icon class="card-header-icon">person_search</mat-icon>
-              <span class="card-header-title">Customer</span>
-            </div>
-            <div class="search-input-wrap">
-              <mat-icon class="search-icon">search</mat-icon>
-              <input #customerInput
-                     type="text"
-                     class="premium-input"
-                     placeholder="Search by name or phone..."
-                     (input)="onCustomerInput($event)"
-                     [matAutocomplete]="customerAuto">
-              <mat-autocomplete #customerAuto="matAutocomplete"
-                                [displayWith]="displayCustomer"
-                                (optionSelected)="onCustomerSelected($event)"
-                                class="premium-autocomplete">
-                <mat-option *ngFor="let c of filteredCustomers" [value]="c" class="premium-option">
-                  <span class="option-name">{{ c.customerName }}</span>
-                  <span class="option-phone">{{ c.phone }}</span>
-                </mat-option>
-              </mat-autocomplete>
-            </div>
-          </div>
 
           <!-- Mic Control Card -->
           <div class="card mic-card" [class.listening]="isListening">
@@ -128,6 +104,12 @@ declare var webkitSpeechRecognition: any;
 
           <!-- Product Cards Grid -->
           <div class="products-section" *ngIf="cart.length > 0 || unmatchedItems.length > 0">
+
+            <!-- Mobile Quick Total -->
+            <div class="mobile-cart-total" *ngIf="cart.length > 0">
+              <span class="mct-label">Total Amount</span>
+              <span class="mct-value">&#8377;{{ subtotal.toFixed(2) }}</span>
+            </div>
 
             <!-- Matched Products -->
             <div class="section-label" *ngIf="cart.length > 0">
@@ -249,7 +231,7 @@ declare var webkitSpeechRecognition: any;
                       (click)="generateInvoiceAndQR()"
                       [disabled]="generating || unmatchedItems.length > 0">
                 <mat-icon>qr_code_2</mat-icon>
-                Print & Complete
+                Generate QR
               </button>
               <button class="btn btn-success btn-lg"
                       (click)="generateCashInvoice()"
@@ -576,6 +558,10 @@ declare var webkitSpeechRecognition: any;
 
     .mic-button.active:hover {
       box-shadow: 0 12px 40px rgba(220, 38, 38, 0.5);
+    }
+
+    .mic-inline {
+      display: none;
     }
 
     .mic-inner {
@@ -922,6 +908,10 @@ declare var webkitSpeechRecognition: any;
     .section-label.warning {
       color: var(--warning);
       margin-top: 28px;
+    }
+
+    .mobile-cart-total {
+      display: none;
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -1445,7 +1435,13 @@ declare var webkitSpeechRecognition: any;
     /* ═══════════════════════════════════════════════════════════════
        RESPONSIVE
        ═══════════════════════════════════════════════════════════════ */
-    @media (max-width: 960px) {
+    @media (min-width: 1024px) and (max-width: 1279.98px) {
+      .voice-layout {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    @media (max-width: 1023.98px) {
       .voice-layout {
         grid-template-columns: 1fr;
       }
@@ -1455,23 +1451,159 @@ declare var webkitSpeechRecognition: any;
       }
     }
 
-    @media (max-width: 600px) {
-      .page-header {
-        flex-direction: column;
-        gap: 12px;
-        align-items: flex-start;
+    @media (max-width: 767.98px) {
+      .voice-billing-page {
+        padding: 16px;
       }
 
+      .page-header {
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .header-left {
+        width: 100%;
+      }
+
+      .header-title-block {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .page-header h1 {
+        font-size: 22px;
+      }
+
+      .header-subtitle {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 13px;
+      }
+
+      .header-icon-wrap {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+      }
+
+      .header-icon-wrap mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+
+      .mic-inline {
+        display: flex;
+        width: 44px;
+        height: 44px;
+      }
+
+      .mic-inline mat-icon {
+        color: #fff;
+        font-size: 22px;
+      }
+
+      .mic-card {
+        display: none;
+      }
+
+      .header-right {
+        width: 100%;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      .product-card-bottom {
+        flex-wrap: wrap;
+      }
+
+      .qty-control {
+        margin-left: 0;
+      }
+
+      .mobile-cart-total {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: var(--primary-gradient);
+        color: #fff;
+        border-radius: 14px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        box-shadow: 0 6px 18px rgba(30, 64, 175, 0.25);
+      }
+
+      .mobile-cart-total .mct-label {
+        font-size: 14px;
+        font-weight: 600;
+        opacity: 0.92;
+      }
+
+      .mobile-cart-total .mct-value {
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .summary-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-lg {
+        width: auto;
+        flex: 1 1 160px;
+        max-width: 230px;
+        padding: 0 18px;
+      }
+
+      .btn {
+        height: 48px;
+      }
+
+      .unmatched-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 479.98px) {
       .products-grid {
         grid-template-columns: 1fr;
       }
 
-      .summary-actions {
-        flex-direction: column;
+      .status-badge {
+        padding: 5px 10px;
+        font-size: 12px;
       }
 
-      .btn-lg {
+      .header-right {
         width: 100%;
+      }
+
+      .status-badge {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .product-card {
+        padding: 16px;
+      }
+
+      .empty-state {
+        padding: 56px 24px;
+      }
+
+      .empty-icon-wrap {
+        width: 80px;
+        height: 80px;
       }
     }
   `]
@@ -1479,12 +1611,7 @@ declare var webkitSpeechRecognition: any;
 export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('cartScrollContainer') cartScrollContainer!: ElementRef;
   @ViewChild('orderTextarea') orderTextarea!: ElementRef<HTMLTextAreaElement>;
-  @ViewChild('customerInput') customerInput!: ElementRef<HTMLInputElement>;
 
-  customers: Customer[] = [];
-  filteredCustomers: Customer[] = [];
-  customerSearchText = '';
-  selectedCustomerId: number | null = null;
   company: Company | null = null;
   isHotel = false;
 
@@ -1509,7 +1636,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   showCashReceipt = false;
 
   constructor(
-    private customerService: CustomerService,
     private voiceService: VoiceService,
     private invoiceService: InvoiceService,
     private companyService: CompanyService,
@@ -1519,10 +1645,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.customerService.getAllCustomers().subscribe({
-      next: (c) => { this.customers = c; this.filteredCustomers = c; },
-      error: () => this.snackBar.open('Failed to load customers', 'Close', { duration: 3000 })
-    });
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.company = data;
@@ -1532,37 +1654,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.initSpeechRecognition();
   }
-
-  filterCustomers(): void {
-    if (typeof this.customerSearchText !== 'string') return;
-    const term = this.customerSearchText.toLowerCase();
-    this.filteredCustomers = this.customers.filter(c =>
-      c.customerName.toLowerCase().includes(term) ||
-      c.phone.toLowerCase().includes(term) ||
-      (c.email && c.email.toLowerCase().includes(term))
-    );
-  }
-
-  onCustomerInput(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.customerSearchText = value;
-    this.selectedCustomerId = null;
-    this.filterCustomers();
-  }
-
-  onCustomerSelected(event: any): void {
-    const c: Customer = event.option.value;
-    this.selectedCustomerId = c.customerId;
-    this.customerSearchText = `${c.customerName} - ${c.phone}`;
-    if (this.customerInput) {
-      this.customerInput.nativeElement.value = this.customerSearchText;
-    }
-  }
-
-  displayCustomer = (customer: Customer | null): string => {
-    if (!customer) return this.customerSearchText;
-    return `${customer.customerName} - ${customer.phone}`;
-  };
 
   ngAfterViewInit(): void {}
 
@@ -1911,11 +2002,12 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
       this.snackBar.open('Cart is empty', 'Close', { duration: 3000 });
       return;
     }
+    if (this.generating) return;
 
     this.stopListening();
-
-    const customerId = this.selectedCustomerId || 1;
     this.generating = true;
+
+    const customerId = 1;
 
     const request = {
       customerId: customerId,
@@ -1930,10 +2022,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (invoice) => {
         this.createdInvoice = invoice;
         this.generateQRCode(invoice);
-        this.cart = [];
-        this.unmatchedItems = [];
-        this.selectedSuggestions = {};
-        this.calculateTotals();
       },
       error: (err) => {
         this.generating = false;
@@ -1959,30 +2047,27 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
       margin: 2,
       color: { dark: '#000000', light: '#ffffff' }
     }).then((url) => {
+      this.generating = false;
       this.dialog.open(QrDialogComponent, {
-        width: '400px',
+        width: '420px',
         data: {
           invoiceNumber: invoice.invoiceNumber,
           totalAmount: invoice.totalAmount,
-          customerName: invoice.customerName,
-          customerPhone: invoice.customerPhone,
           qrCodeDataUrl: url,
-          onCompleted: () => this.completeQrPayment(),
+          paymentMethod: 'QR',
+          onPaymentReceived: () => this.receiveQrPayment(),
+          onChangeToCash: () => this.switchToCash(),
+          onCancel: () => this.cancelQrPayment(),
           isHotel: this.isHotel
         }
       });
-      this.generating = false;
-      this.cart = [];
-      this.unmatchedItems = [];
-      this.selectedSuggestions = {};
-      this.calculateTotals();
       this.snackBar.open('Invoice created! Show QR to customer.', 'Close', { duration: 4000 });
     }).catch(() => {
       this.generating = false;
     });
   }
 
-  private completeQrPayment(): void {
+  private receiveQrPayment(): void {
     const inv = this.createdInvoice;
     if (!inv) return;
     this.invoiceService.markCompleted(inv.invoiceId!, 'upi').subscribe({
@@ -1993,10 +2078,45 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
           data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
         });
         this.printReceiptFor(inv, 'UPI/QR');
-        this.createdInvoice = null;
+        this.finishBillingSession();
       },
       error: () => this.snackBar.open('Error updating status', 'Close', { duration: 3000 })
     });
+  }
+
+  private switchToCash(): void {
+    const inv = this.createdInvoice;
+    if (!inv) return;
+    this.invoiceService.markCompleted(inv.invoiceId!, 'cash').subscribe({
+      next: () => {
+        this.dialog.open(PaymentSuccessDialogComponent, {
+          width: '360px',
+          disableClose: true,
+          data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
+        });
+        this.printReceiptFor(inv, 'CASH');
+        this.finishBillingSession();
+      },
+      error: () => this.snackBar.open('Error updating status', 'Close', { duration: 3000 })
+    });
+  }
+
+  private cancelQrPayment(): void {
+    const inv = this.createdInvoice;
+    if (!inv) return;
+    this.invoiceService.deleteInvoice(inv.invoiceId!).subscribe({
+      next: () => { this.createdInvoice = null; },
+      error: () => {}
+    });
+    this.snackBar.open('Payment cancelled. Cart preserved.', 'Close', { duration: 3000 });
+  }
+
+  private finishBillingSession(): void {
+    this.createdInvoice = null;
+    this.cart = [];
+    this.unmatchedItems = [];
+    this.selectedSuggestions = {};
+    this.calculateTotals();
   }
 
   private printReceiptFor(inv: Invoice, paymentMethod: string): void {
@@ -2015,7 +2135,7 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.stopListening();
 
-    const customerId = this.selectedCustomerId || 1;
+    const customerId = 1;
     this.generating = true;
 
     const request = {

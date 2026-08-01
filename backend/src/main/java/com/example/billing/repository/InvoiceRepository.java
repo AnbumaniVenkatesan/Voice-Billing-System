@@ -10,28 +10,28 @@ import java.util.Optional;
 
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
-    Optional<Invoice> findByInvoiceNumber(String invoiceNumber);
+    Optional<Invoice> findByInvoiceNumberAndCompanyId(String invoiceNumber, Long companyId);
 
-    List<Invoice> findByCustomer_CustomerId(Long customerId);
+    List<Invoice> findByPaymentStatusAndCompanyId(String status, Long companyId);
 
-    List<Invoice> findByPaymentStatus(String status);
+    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.companyId = :companyId AND i.invoiceDate BETWEEN :start AND :end")
+    BigDecimal sumSalesBetween(LocalDateTime start, LocalDateTime end, Long companyId);
 
-    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.invoiceDate BETWEEN :start AND :end")
-    BigDecimal sumSalesBetween(LocalDateTime start, LocalDateTime end);
+    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.paymentStatus = 'completed' AND i.companyId = :companyId AND i.invoiceDate BETWEEN :start AND :end")
+    BigDecimal sumCompletedSalesBetween(LocalDateTime start, LocalDateTime end, Long companyId);
 
-    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.paymentStatus = 'completed' AND i.invoiceDate BETWEEN :start AND :end")
-    BigDecimal sumCompletedSalesBetween(LocalDateTime start, LocalDateTime end);
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus = 'pending' AND i.companyId = :companyId")
+    Long countPendingPayments(Long companyId);
 
-    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus = 'pending'")
-    Long countPendingPayments();
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus = 'completed' AND i.companyId = :companyId")
+    Long countCompletedPayments(Long companyId);
 
-    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus = 'completed'")
-    Long countCompletedPayments();
+    List<Invoice> findByCompanyIdAndInvoiceDateBetweenOrderByInvoiceDateDesc(Long companyId, LocalDateTime start, LocalDateTime end);
 
-    List<Invoice> findByInvoiceDateBetweenOrderByInvoiceDateDesc(LocalDateTime start, LocalDateTime end);
+    @Query("SELECT i.invoiceNumber FROM Invoice i WHERE i.companyId = :companyId AND i.invoiceNumber LIKE CONCAT(:prefix, '%')")
+    List<String> findExistingInvoiceNumbers(String prefix, Long companyId);
 
-    @Query("SELECT i.invoiceNumber FROM Invoice i WHERE i.invoiceNumber LIKE CONCAT(:prefix, '%')")
-    List<String> findExistingInvoiceNumbers(String prefix);
+    List<Invoice> findByCompanyId(Long companyId);
 
     @Query(value = "SELECT p.product_id, p.product_name, " +
             "COALESCE(SUM(ii.quantity), 0) as total_qty, " +
@@ -39,25 +39,25 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             "FROM invoice i " +
             "JOIN invoice_item ii ON i.invoice_id = ii.invoice_id " +
             "JOIN product p ON ii.product_id = p.product_id " +
-            "WHERE i.invoice_date BETWEEN :start AND :end " +
+            "WHERE i.invoice_date BETWEEN :start AND :end AND i.company_id = :companyId " +
             "GROUP BY p.product_id, p.product_name " +
             "ORDER BY total_sales DESC", nativeQuery = true)
-    List<Object[]> salesByProduct(LocalDateTime start, LocalDateTime end);
+    List<Object[]> salesByProduct(LocalDateTime start, LocalDateTime end, Long companyId);
 
     @Query(value = "SELECT i.payment_status, " +
             "COALESCE(SUM(i.total_amount), 0) as total " +
             "FROM invoice i " +
-            "WHERE i.invoice_date BETWEEN :start AND :end " +
+            "WHERE i.invoice_date BETWEEN :start AND :end AND i.company_id = :companyId " +
             "GROUP BY i.payment_status", nativeQuery = true)
-    List<Object[]> salesByPaymentStatus(LocalDateTime start, LocalDateTime end);
+    List<Object[]> salesByPaymentStatus(LocalDateTime start, LocalDateTime end, Long companyId);
 
     @Query(value = "SELECT COALESCE(py.gateway, 'cash') as gateway, " +
             "COALESCE(SUM(COALESCE(py.amount, i.total_amount)), 0) as total " +
             "FROM invoice i " +
             "LEFT JOIN payment py ON i.invoice_id = py.invoice_id " +
-            "WHERE i.invoice_date BETWEEN :start AND :end AND i.payment_status = 'completed' " +
+            "WHERE i.invoice_date BETWEEN :start AND :end AND i.payment_status = 'completed' AND i.company_id = :companyId " +
             "GROUP BY COALESCE(py.gateway, 'cash')", nativeQuery = true)
-    List<Object[]> salesByGateway(LocalDateTime start, LocalDateTime end);
+    List<Object[]> salesByGateway(LocalDateTime start, LocalDateTime end, Long companyId);
 
     @Query(value = "SELECT p.product_id, p.product_name, " +
             "COALESCE(SUM(py.amount), 0) as payment_total " +
@@ -66,8 +66,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             "JOIN invoice_item ii ON i.invoice_id = ii.invoice_id " +
             "JOIN product p ON ii.product_id = p.product_id " +
             "WHERE i.invoice_date BETWEEN :start AND :end AND i.payment_status = 'completed' " +
-            "AND py.gateway = :gateway " +
+            "AND py.gateway = :gateway AND i.company_id = :companyId " +
             "GROUP BY p.product_id, p.product_name " +
             "ORDER BY payment_total DESC", nativeQuery = true)
-    List<Object[]> salesByProductAndGateway(LocalDateTime start, LocalDateTime end, String gateway);
+    List<Object[]> salesByProductAndGateway(LocalDateTime start, LocalDateTime end, String gateway, Long companyId);
 }

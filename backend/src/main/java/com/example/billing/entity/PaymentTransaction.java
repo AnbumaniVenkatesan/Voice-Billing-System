@@ -22,6 +22,9 @@ public class PaymentTransaction {
     @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "request", columnDefinition = "TEXT")
     private String request;
 

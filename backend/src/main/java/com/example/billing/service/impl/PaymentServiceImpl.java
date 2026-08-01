@@ -1,5 +1,6 @@
 package com.example.billing.service.impl;
 
+import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.PaymentRequest;
 import com.example.billing.dto.response.PaymentResponse;
 import com.example.billing.entity.Invoice;
@@ -27,12 +28,25 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaytmConfig paytmConfig;
+    private final CurrentUserProvider currentUserProvider;
+
+    private Long companyId() {
+        return currentUserProvider.getCompanyId();
+    }
+
+    private Invoice requireInvoice(Long invoiceId) {
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+        if (invoice.getCompanyId() != null && !invoice.getCompanyId().equals(companyId())) {
+            throw new ResourceNotFoundException("Invoice", "id", invoiceId);
+        }
+        return invoice;
+    }
 
     @Override
     @Transactional
     public PaymentResponse createPayment(PaymentRequest request) {
-        Invoice invoice = invoiceRepository.findById(request.getInvoiceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", request.getInvoiceId()));
+        Invoice invoice = requireInvoice(request.getInvoiceId());
 
         String orderId = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -42,6 +56,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orderId(orderId)
                 .amount(invoice.getTotalAmount())
                 .status("pending")
+                .companyId(invoice.getCompanyId())
                 .build();
 
         Payment saved = paymentRepository.save(payment);
@@ -50,6 +65,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .payment(saved)
                 .request("Payment initiated via " + request.getGateway())
                 .status("initiated")
+                .companyId(invoice.getCompanyId())
                 .build();
         paymentTransactionRepository.save(transaction);
 
@@ -59,8 +75,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse initiatePaytmPayment(Long invoiceId) {
-        Invoice invoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+        Invoice invoice = requireInvoice(invoiceId);
 
         String orderId = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -70,6 +85,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orderId(orderId)
                 .amount(invoice.getTotalAmount())
                 .status("initiated")
+                .companyId(invoice.getCompanyId())
                 .build();
 
         Payment saved = paymentRepository.save(payment);
@@ -80,6 +96,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .payment(saved)
                 .request("Paytm payment initiated. OrderId: " + orderId)
                 .status("initiated")
+                .companyId(invoice.getCompanyId())
                 .build();
         paymentTransactionRepository.save(transaction);
 
@@ -115,6 +132,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .payment(saved)
                 .response(callbackParams.toString())
                 .status(status.equals("TXN_SUCCESS") ? "success" : "failed")
+                .companyId(payment.getInvoice() != null ? payment.getInvoice().getCompanyId() : payment.getCompanyId())
                 .build();
         paymentTransactionRepository.save(transaction);
 
@@ -123,6 +141,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponse getPaymentByInvoiceId(Long invoiceId) {
+        requireInvoice(invoiceId);
         Optional<Payment> paymentOpt = paymentRepository.findByInvoiceInvoiceId(invoiceId);
         if (paymentOpt.isEmpty()) {
             throw new ResourceNotFoundException("Payment", "invoiceId", invoiceId);

@@ -31,3 +31,19 @@ export const authGuard: CanActivateFn = (route: ActivatedRouteSnapshot, state: R
     })
   );
 };
+
+export const superAdminGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isLoggedIn() && authService.isSuperAdmin()) {
+    return true;
+  }
+
+  if (authService.isLoggedIn()) {
+    router.navigate(['/dashboard']);
+  } else {
+    router.navigate(['/login']);
+  }
+  return false;
+};

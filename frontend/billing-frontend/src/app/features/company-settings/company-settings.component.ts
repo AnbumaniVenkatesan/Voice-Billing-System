@@ -32,10 +32,16 @@ import { Company } from '../../shared/models/company.model';
             <p class="subtitle">Manage your business profile and preferences</p>
           </div>
         </div>
-        <button class="btn-primary save-top" (click)="save()" [disabled]="saving">
-          <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
-          {{ saving ? 'Saving...' : (isFirstTime ? 'Save & Continue' : 'Save Changes') }}
-        </button>
+        <div class="header-actions">
+          <button class="btn-outline header-clear" (click)="clearForm()" [disabled]="saving">
+            <mat-icon>restart_alt</mat-icon>
+            Clear
+          </button>
+          <button class="btn-primary save-top" (click)="save()" [disabled]="saving">
+            <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+            {{ saving ? 'Saving...' : (isFirstTime ? 'Save & Continue' : 'Save Changes') }}
+          </button>
+        </div>
       </div>
 
       <div class="setup-banner" *ngIf="isFirstTime">
@@ -132,6 +138,27 @@ import { Company } from '../../shared/models/company.model';
                 </div>
               </div>
             </div>
+            <div class="section-divider"></div>
+            <h3>
+              <mat-icon>admin_panel_settings</mat-icon>
+              Super Admin (Optional)
+            </h3>
+            <p class="section-hint">A super admin manages all companies from a single dashboard. Create one now or set it up later from the login page.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Super Admin Username</label>
+                <input type="text" [(ngModel)]="superAdminUsername" placeholder="Choose a super admin username" class="form-input">
+              </div>
+              <div class="form-group">
+                <label>Super Admin Password</label>
+                <div class="password-field">
+                  <input [type]="saShowPassword ? 'text' : 'password'" [(ngModel)]="superAdminPassword" placeholder="Min 6 characters" class="form-input">
+                  <button class="password-toggle" (click)="saShowPassword = !saShowPassword" type="button">
+                    <mat-icon>{{ saShowPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -214,7 +241,7 @@ import { Company } from '../../shared/models/company.model';
             </div>
             <div class="form-group">
               <label>Next Invoice Number</label>
-              <input type="text" [(ngModel)]="nextInvoiceNumber" placeholder="Auto-incremented" class="form-input">
+              <input type="text" [(ngModel)]="nextInvoiceNumber" placeholder="Auto-incremented" class="form-input" disabled>
             </div>
             <div class="form-group full-span">
               <label>Bill Footer</label>
@@ -223,6 +250,14 @@ import { Company } from '../../shared/models/company.model';
             <div class="form-group full-span">
               <label>Receipt Message</label>
               <input type="text" [(ngModel)]="company.receiptMessage" placeholder="e.g. No Exchange After 3 Days" class="form-input">
+            </div>
+            <div class="form-group full-span">
+              <label>Invoice Header</label>
+              <textarea [(ngModel)]="company.invoiceHeader" rows="2" placeholder="Custom text shown at the top of the receipt (e.g. billing address, contact info)" class="form-input form-textarea"></textarea>
+            </div>
+            <div class="form-group full-span">
+              <label>Invoice Footer</label>
+              <textarea [(ngModel)]="company.invoiceFooter" rows="2" placeholder="Custom text shown at the bottom of the receipt" class="form-input form-textarea"></textarea>
             </div>
           </div>
         </div>
@@ -307,6 +342,10 @@ import { Company } from '../../shared/models/company.model';
               <button class="btn-outline" (click)="logoInput.click()">
                 <mat-icon>upload</mat-icon>
                 {{ company.logo ? 'Change Logo' : 'Upload Logo' }}
+              </button>
+              <button *ngIf="company.logo" class="btn-danger" (click)="removeLogo()">
+                <mat-icon>delete</mat-icon>
+                Remove Logo
               </button>
               <p class="hint">PNG or JPEG, max 5MB</p>
             </div>
@@ -617,6 +656,19 @@ import { Company } from '../../shared/models/company.model';
       color: #94A3B8;
     }
 
+    .form-textarea {
+      height: auto;
+      padding: 12px 16px;
+      resize: vertical;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .section-hint {
+      font-size: 12px;
+      color: #64748B;
+      margin: -8px 0 14px;
+    }
+
     .form-input:focus,
     .form-select:focus {
       border-color: #1E40AF;
@@ -752,6 +804,34 @@ import { Company } from '../../shared/models/company.model';
       height: 20px;
     }
 
+    .btn-danger {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 44px;
+      padding: 0 24px;
+      background: #FEF2F2;
+      color: #DC2626;
+      border: 1.5px solid #DC2626;
+      border-radius: 12px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 250ms ease;
+      margin-left: 10px;
+    }
+
+    .btn-danger:hover {
+      background: #FEE2E2;
+    }
+
+    .btn-danger mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
     .hint {
       font-size: 12px;
       color: #94A3B8;
@@ -815,15 +895,116 @@ import { Company } from '../../shared/models/company.model';
       .form-grid { grid-template-columns: 1fr; }
       .save-footer { left: 0; }
     }
+
+    @media (max-width: 767.98px) {
+      .settings-page {
+        padding: 16px;
+        padding-bottom: 110px;
+      }
+      .page-header h1 {
+        font-size: 24px;
+      }
+      .header-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+      }
+      .header-icon mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+      .save-top {
+        width: 100%;
+        justify-content: center;
+      }
+      .header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .header-clear {
+        justify-content: center;
+      }
+      .save-footer {
+        padding: 12px 16px;
+      }
+      .save-footer-inner {
+        flex-direction: column-reverse;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .save-status {
+        justify-content: center;
+      }
+      .save-btn {
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+      }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-clear {
+      height: 48px;
+      padding: 0 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: white;
+      color: #1E40AF;
+      border: 1.5px solid #1E40AF;
+      border-radius: 12px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 250ms ease;
+    }
+
+    .header-clear:hover:not(:disabled) {
+      background: #DBEAFE;
+    }
+
+    .header-clear:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .header-clear mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .setup-banner {
+        flex-direction: column;
+        text-align: center;
+      }
+      .logo-preview img {
+        max-width: 100%;
+      }
+      .logo-placeholder {
+        width: 100%;
+        max-width: 220px;
+      }
+    }
   `]
 })
 export class CompanySettingsComponent implements OnInit {
-  company: Company = {} as Company;
+  company: Company = { shopType: 'Hotel' } as Company;
   saving = false;
   isFirstTime = false;
   username = '';
   password = '';
   showPassword = false;
+  superAdminUsername = '';
+  superAdminPassword = '';
+  saShowPassword = false;
   toastMessage = '';
   toastType: 'success' | 'error' = 'success';
   nextInvoiceNumber = '';
@@ -839,6 +1020,7 @@ export class CompanySettingsComponent implements OnInit {
   ngOnInit(): void {
     if (!this.authService.isLoggedIn()) {
       this.isFirstTime = true;
+      return;
     }
 
     this.companyService.getCompany().subscribe({
@@ -864,6 +1046,33 @@ export class CompanySettingsComponent implements OnInit {
     return 'http://localhost:8080' + this.company.logo;
   }
 
+  clearForm(): void {
+    if (!confirm('Clear all unsaved changes?')) return;
+
+    if (this.isFirstTime) {
+      this.company = { shopType: 'Hotel' } as Company;
+      this.username = '';
+      this.password = '';
+      this.superAdminUsername = '';
+      this.superAdminPassword = '';
+      this.paytmMid = '';
+      this.paytmKey = '';
+      this.nextInvoiceNumber = '';
+      return;
+    }
+
+    this.companyService.getCompany().subscribe({
+      next: (data) => {
+        this.company = data;
+        this.paytmMid = (data as any).paytmMid || '';
+        this.paytmKey = (data as any).paytmKey || '';
+        this.nextInvoiceNumber = (data as any).nextInvoiceNumber || '';
+        this.showToast('Form reset to saved values', 'success');
+      },
+      error: () => this.showToast('Failed to reload company details', 'error')
+    });
+  }
+
   save(): void {
     if (!this.company.companyName || !this.company.phoneNumber || !this.company.addressLine1 || !this.company.invoicePrefix || !this.company.shopType) {
       this.showToast('Please fill required fields: Company Name, Shop Type, Phone, Address, Invoice Prefix', 'error');
@@ -877,6 +1086,11 @@ export class CompanySettingsComponent implements OnInit {
 
     if (this.isFirstTime && this.password.length < 6) {
       this.showToast('Password must be at least 6 characters', 'error');
+      return;
+    }
+
+    if (this.isFirstTime && this.superAdminPassword && this.superAdminPassword.length < 6) {
+      this.showToast('Super admin password must be at least 6 characters', 'error');
       return;
     }
 
@@ -908,18 +1122,25 @@ export class CompanySettingsComponent implements OnInit {
       taxPercentage: this.company.taxPercentage || null,
       billFooter: this.company.billFooter || '',
       receiptMessage: this.company.receiptMessage || '',
+      invoiceHeader: this.company.invoiceHeader || '',
+      invoiceFooter: this.company.invoiceFooter || '',
       paytmMid: this.paytmMid || '',
       paytmKey: this.paytmKey || ''
     };
 
+    let save$;
+
     if (this.isFirstTime) {
       request.username = this.username;
       request.password = this.password;
+      if (this.superAdminUsername && this.superAdminPassword) {
+        request.superAdminUsername = this.superAdminUsername;
+        request.superAdminPassword = this.superAdminPassword;
+      }
+      save$ = this.companyService.setupCompany(request);
+    } else {
+      save$ = this.companyService.updateCompany(this.company.companyId, request);
     }
-
-    const save$ = this.company.companyId
-      ? this.companyService.updateCompany(this.company.companyId, request)
-      : this.companyService.saveCompany(request);
 
     save$.subscribe({
       next: (data) => {
@@ -959,5 +1180,15 @@ export class CompanySettingsComponent implements OnInit {
     });
 
     input.value = '';
+  }
+
+  removeLogo(): void {
+    this.companyService.removeLogo().subscribe({
+      next: (data) => {
+        this.company = data;
+        this.showToast('Logo removed', 'success');
+      },
+      error: (err) => this.showToast('Failed to remove logo: ' + (err.error?.message || 'Server error'), 'error')
+    });
   }
 }

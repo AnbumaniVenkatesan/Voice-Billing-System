@@ -44,3 +44,58 @@ a { text-decoration: none; color: inherit; }
   background: rgba(15, 23, 42, 0.3);
   backdrop-filter: blur(4px);
 }
+
+.mat-mdc-dialog-container {
+  max-width: 95vw;
+}
+
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  max-height: 90vh;
+}
+
+.mat-mdc-dialog-content img[src*="data:image"] {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* ====== Responsive dialogs ====== */
+@media (max-width: 767.98px) {
+  .cdk-overlay-container .mat-mdc-dialog-panel {
+    width: 95vw !important;
+    max-width: 95vw !important;
+  }
+
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    max-height: 92vh;
+  }
+}
+
+/* ====== Responsive paginator ====== */
+@media (max-width: 767.98px) {
+  .mat-mdc-paginator {
+    font-size: 12px;
+  }
+
+  .mat-mdc-paginator-container {
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .mat-mdc-paginator-range-label {
+    display: none;
+  }
+
+  .mat-mdc-paginator-page-size {
+    display: none;
+  }
+}
+
+@media (max-width: 479.98px) {
+  .mat-mdc-paginator-navigation-previous,
+  .mat-mdc-paginator-navigation-next,
+  .mat-mdc-paginator-navigation-first,
+  .mat-mdc-paginator-navigation-last {
+    min-width: 40px !important;
+  }
+}

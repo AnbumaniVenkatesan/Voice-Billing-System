@@ -26,4 +26,7 @@ public class ProductAlias {
 
     @Column(name = "language", length = 10)
     private String language;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -9,9 +9,9 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    List<Product> findByProductNameContainingIgnoreCase(String name);
+    List<Product> findByProductNameContainingIgnoreCaseAndCompanyId(String name, Long companyId);
 
-    List<Product> findByStatus(String status);
+    List<Product> findByStatusAndCompanyId(String status, Long companyId);
 
     @Query(value = "SELECT p.product_id, p.product_name, p.stock, p.price, " +
             "COALESCE(s.total_qty, 0) as total_qty, " +
@@ -21,13 +21,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             "  SELECT ii.product_id, SUM(ii.quantity) as total_qty, SUM(ii.total) as total_sales " +
             "  FROM invoice_item ii " +
             "  INNER JOIN invoice i ON ii.invoice_id = i.invoice_id " +
-            "  WHERE i.invoice_date BETWEEN :start AND :end " +
+            "  WHERE i.invoice_date BETWEEN :start AND :end AND i.company_id = :companyId " +
             "  GROUP BY ii.product_id " +
             ") s ON p.product_id = s.product_id " +
-            "WHERE p.status = 'active' " +
+            "WHERE p.status = 'active' AND p.company_id = :companyId " +
             "ORDER BY total_sales DESC", nativeQuery = true)
-    List<Object[]> findProductSales(LocalDateTime start, LocalDateTime end);
+    List<Object[]> findProductSales(LocalDateTime start, LocalDateTime end, Long companyId);
 
-    @Query("SELECT p FROM Product p WHERE LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-    List<Product> searchByKeyword(String keyword);
+    @Query("SELECT p FROM Product p WHERE LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.companyId = :companyId")
+    List<Product> searchByKeyword(String keyword, Long companyId);
+
+    List<Product> findByCompanyId(Long companyId);
 }

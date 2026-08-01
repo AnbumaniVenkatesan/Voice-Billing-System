@@ -36,17 +36,17 @@ public class InvoiceController {
         return ResponseEntity.ok(invoice);
     }
 
-    @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<InvoiceResponse>> getInvoicesByCustomerId(@PathVariable Long customerId) {
-        List<InvoiceResponse> invoices = invoiceService.getInvoicesByCustomerId(customerId);
-        return ResponseEntity.ok(invoices);
-    }
-
     @PatchMapping("/{id}/complete")
     public ResponseEntity<InvoiceResponse> markCompleted(
             @PathVariable Long id,
             @RequestParam(defaultValue = "cash") String gateway) {
         InvoiceResponse response = invoiceService.markCompleted(id, gateway);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteInvoice(@PathVariable Long id) {
+        invoiceService.deleteInvoice(id);
+        return ResponseEntity.noContent().build();
     }
 }

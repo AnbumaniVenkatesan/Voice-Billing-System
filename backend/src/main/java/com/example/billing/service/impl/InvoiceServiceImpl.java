@@ -1,5 +1,6 @@
 package com.example.billing.service.impl;
 
+import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.InvoiceRequest;
 import com.example.billing.dto.response.InvoiceResponse;
 import com.example.billing.entity.Company;
@@ -36,12 +37,30 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final ProductRepository productRepository;
     private final CompanyRepository companyRepository;
     private final PaymentRepository paymentRepository;
+    private final CurrentUserProvider currentUserProvider;
+
+    private Long companyId() {
+        return currentUserProvider.getCompanyId();
+    }
+
+    private Invoice requireInvoice(Long id) {
+        Invoice invoice = invoiceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", id));
+        if (invoice.getCompanyId() != null && !invoice.getCompanyId().equals(companyId())) {
+            throw new ResourceNotFoundException("Invoice", "id", id);
+        }
+        return invoice;
+    }
 
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceRequest request) {
+        Long cid = companyId();
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", request.getCustomerId()));
+        if (customer.getCompanyId() != null && !customer.getCompanyId().equals(cid)) {
+            throw new ResourceNotFoundException("Customer", "id", request.getCustomerId());
+        }
 
         List<InvoiceItem> invoiceItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -49,6 +68,9 @@ public class InvoiceServiceImpl implements InvoiceService {
         for (InvoiceRequest.InvoiceItemRequest itemRequest : request.getItems()) {
             Product product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", "id", itemRequest.getProductId()));
+            if (product.getCompanyId() != null && !product.getCompanyId().equals(cid)) {
+                throw new ResourceNotFoundException("Product", "id", itemRequest.getProductId());
+            }
 
             BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
 
@@ -58,13 +80,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                     .unit("pcs")
                     .price(product.getPrice())
                     .total(itemTotal)
+                    .companyId(cid)
                     .build();
 
             invoiceItems.add(invoiceItem);
             subtotal = subtotal.add(itemTotal);
         }
 
-        BigDecimal taxPercent = companyRepository.findByIsActiveTrue()
+        BigDecimal taxPercent = companyRepository.findById(cid)
                 .map(Company::getTaxPercentage)
                 .filter(t -> t.compareTo(BigDecimal.ZERO) > 0)
                 .orElse(new BigDecimal("3.00"));
@@ -80,10 +103,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         // Total is same as subtotal since GST is already included in prices
         BigDecimal totalAmount = subtotal.subtract(discount);
 
-        String invoiceNumber = generateInvoiceNumber();
+        String invoiceNumber = generateInvoiceNumber(cid);
 
         Invoice invoice = Invoice.builder()
                 .invoiceNumber(invoiceNumber)
+                .companyId(cid)
                 .customer(customer)
                 .subtotal(subtotal)
                 .gstAmount(gstAmount)
@@ -105,30 +129,20 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     public List<InvoiceResponse> getAllInvoices() {
-        return invoiceRepository.findAll().stream()
+        return invoiceRepository.findByCompanyId(companyId()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
     public InvoiceResponse getInvoiceById(Long id) {
-        Invoice invoice = invoiceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", id));
-        return mapToResponse(invoice);
-    }
-
-    @Override
-    public List<InvoiceResponse> getInvoicesByCustomerId(Long customerId) {
-        return invoiceRepository.findByCustomer_CustomerId(customerId).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToResponse(requireInvoice(id));
     }
 
     @Override
     @Transactional
     public InvoiceResponse markCompleted(Long invoiceId, String gateway) {
-        Invoice invoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+        Invoice invoice = requireInvoice(invoiceId);
         invoice.setPaymentStatus("completed");
 
         if (paymentRepository.findByInvoiceInvoiceId(invoiceId).isEmpty()) {
@@ -137,6 +151,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                     .gateway(gateway != null ? gateway : "cash")
                     .amount(invoice.getTotalAmount())
                     .status("completed")
+                    .companyId(invoice.getCompanyId())
                     .build();
             paymentRepository.save(cashPayment);
         }
@@ -145,11 +160,21 @@ public class InvoiceServiceImpl implements InvoiceService {
         return mapToResponse(saved);
     }
 
-    private String generateInvoiceNumber() {
+    @Override
+    @Transactional
+    public void deleteInvoice(Long invoiceId) {
+        Invoice invoice = requireInvoice(invoiceId);
+        if ("completed".equalsIgnoreCase(invoice.getPaymentStatus())) {
+            throw new IllegalStateException("Cannot delete a completed invoice");
+        }
+        invoiceRepository.delete(invoice);
+    }
+
+    private String generateInvoiceNumber(Long cid) {
         String datePart = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "INV-" + datePart + "-";
 
-        List<String> existing = invoiceRepository.findExistingInvoiceNumbers(prefix);
+        List<String> existing = invoiceRepository.findExistingInvoiceNumbers(prefix, cid);
         int maxSeq = existing.stream()
                 .map(s -> s.replace(prefix, ""))
                 .mapToInt(Integer::parseInt)

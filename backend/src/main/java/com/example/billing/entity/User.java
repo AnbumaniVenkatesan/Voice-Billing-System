@@ -27,6 +27,13 @@ public class User {
     @Column(name = "role", length = 20, nullable = false)
     private String role;
 
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private Boolean isActive = true;
+
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

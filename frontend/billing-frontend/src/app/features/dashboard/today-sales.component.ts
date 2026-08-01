@@ -391,6 +391,28 @@ import { DashboardService } from '../../shared/services/dashboard.service';
       }
     }
 
+    @media (max-width: 767.98px) {
+      .page-top-bar {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .back-btn {
+        height: 44px;
+        padding: 0 16px;
+      }
+      .chart-card-header {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .vbar-chart {
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+      .vbar-col {
+        min-width: 44px;
+      }
+    }
+
     @media (max-width: 640px) {
       :host {
         padding: 20px 16px;
@@ -399,7 +421,33 @@ import { DashboardService } from '../../shared/services/dashboard.service';
         grid-template-columns: 1fr;
       }
       .chart-card {
-        padding: 20px;
+        padding: 16px;
+      }
+      .page-title {
+        font-size: 22px;
+      }
+      .summary-card {
+        padding: 18px;
+        gap: 14px;
+      }
+      .summary-icon-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+      }
+      .summary-icon-circle mat-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+      .summary-value {
+        font-size: 20px;
+      }
+      .vbar-track {
+        height: 180px;
+      }
+      .vbar-chart {
+        height: 260px;
       }
     }
   `]
