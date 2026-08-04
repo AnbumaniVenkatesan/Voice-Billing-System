@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -572,6 +573,45 @@ public class ProductServiceImpl implements ProductService {
                 .notFound(notFound)
                 .errors(errors)
                 .build();
+    }
+
+    @Override
+    public byte[] exportToExcel() {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Products");
+            String[] headers = {"Product Name", "Tamil Name", "Price", "GST %", "Stock", "Status"};
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                CellStyle style = workbook.createCellStyle();
+                style.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex());
+                style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                Font font = workbook.createFont();
+                font.setBold(true);
+                style.setFont(font);
+                cell.setCellStyle(style);
+                sheet.setColumnWidth(i, 2500);
+            }
+
+            List<Product> products = productRepository.findByCompanyId(companyId());
+            int rowNum = 1;
+            for (Product p : products) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(p.getProductName());
+                row.createCell(1).setCellValue(p.getTamilName() != null ? p.getTamilName() : "");
+                row.createCell(2).setCellValue(p.getPrice() != null ? p.getPrice().doubleValue() : 0.0);
+                row.createCell(3).setCellValue(p.getGstPercentage() != null ? p.getGstPercentage().doubleValue() : 0.0);
+                row.createCell(4).setCellValue(p.getStock());
+                row.createCell(5).setCellValue(p.getStatus() != null ? p.getStatus() : "active");
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to export products to Excel", e);
+        }
     }
 
     private String getCellStringValue(Cell cell) {

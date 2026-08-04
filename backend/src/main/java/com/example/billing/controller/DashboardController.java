@@ -3,7 +3,6 @@ package com.example.billing.controller;
 import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.repository.InvoiceRepository;
 import com.example.billing.repository.ProductRepository;
-import com.example.billing.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +21,6 @@ public class DashboardController {
 
     private final ProductRepository productRepository;
     private final InvoiceRepository invoiceRepository;
-    private final PaymentRepository paymentRepository;
     private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
@@ -42,8 +40,9 @@ public class DashboardController {
         BigDecimal monthlySales = invoiceRepository.sumSalesBetween(monthStart, monthEnd, companyId);
         dashboard.put("monthlySales", monthlySales);
 
-        dashboard.put("pendingPayments", invoiceRepository.countPendingPayments(companyId));
-        dashboard.put("completedPayments", invoiceRepository.countCompletedPayments(companyId));
+        dashboard.put("todayBills", invoiceRepository.countInvoicesBetween(todayStart, todayEnd, companyId));
+        dashboard.put("totalRevenue", invoiceRepository.sumTotalRevenue(companyId));
+        dashboard.put("totalProductsSold", invoiceRepository.sumProductsSold(companyId));
 
         return ResponseEntity.ok(dashboard);
     }
@@ -134,9 +133,8 @@ public class DashboardController {
         }
         result.put("upiTotal", gatewayMap.getOrDefault("upi", BigDecimal.ZERO));
         result.put("cashTotal", gatewayMap.getOrDefault("cash", BigDecimal.ZERO));
-        result.put("paytmTotal", gatewayMap.getOrDefault("paytm", BigDecimal.ZERO));
         result.put("otherTotal", gatewayMap.entrySet().stream()
-                .filter(e -> !e.getKey().equals("upi") && !e.getKey().equals("cash") && !e.getKey().equals("paytm"))
+                .filter(e -> !e.getKey().equals("upi") && !e.getKey().equals("cash"))
                 .map(Map.Entry::getValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
 
@@ -190,9 +188,8 @@ public class DashboardController {
         }
         result.put("upiTotal", gatewayMap.getOrDefault("upi", BigDecimal.ZERO));
         result.put("cashTotal", gatewayMap.getOrDefault("cash", BigDecimal.ZERO));
-        result.put("paytmTotal", gatewayMap.getOrDefault("paytm", BigDecimal.ZERO));
         result.put("otherTotal", gatewayMap.entrySet().stream()
-                .filter(e -> !e.getKey().equals("upi") && !e.getKey().equals("cash") && !e.getKey().equals("paytm"))
+                .filter(e -> !e.getKey().equals("upi") && !e.getKey().equals("cash"))
                 .map(Map.Entry::getValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
 

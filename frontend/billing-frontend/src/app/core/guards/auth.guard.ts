@@ -3,11 +3,28 @@ import { CanActivateFn, Router, ActivatedRouteSnapshot, RouterStateSnapshot } fr
 import { AuthService } from '../auth/auth.service';
 import { map, catchError, of } from 'rxjs';
 
+export function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload?.exp;
+    if (!exp) return false;
+    return exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export const authGuard: CanActivateFn = (route: ActivatedRouteSnapshot, state: RouterStateSnapshot) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
   if (authService.isLoggedIn()) {
+    if (isTokenExpired(authService.getToken())) {
+      authService.logout();
+      router.navigate(['/login']);
+      return false;
+    }
     return true;
   }
 
@@ -37,6 +54,11 @@ export const superAdminGuard: CanActivateFn = () => {
   const router = inject(Router);
 
   if (authService.isLoggedIn() && authService.isSuperAdmin()) {
+    if (isTokenExpired(authService.getToken())) {
+      authService.logout();
+      router.navigate(['/login']);
+      return false;
+    }
     return true;
   }
 

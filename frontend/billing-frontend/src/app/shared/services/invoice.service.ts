@@ -24,10 +24,6 @@ export class InvoiceService {
     return this.http.post<Invoice>(this.apiUrl, request);
   }
 
-  markCompleted(invoiceId: number, gateway: string = 'cash'): Observable<Invoice> {
-    return this.http.patch<Invoice>(`${this.apiUrl}/${invoiceId}/complete?gateway=${gateway}`, {});
-  }
-
   deleteInvoice(invoiceId: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${invoiceId}`);
   }

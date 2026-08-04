@@ -83,16 +83,6 @@ import { DashboardService } from '../../shared/services/dashboard.service';
             <span class="summary-label">Cash</span>
           </div>
         </div>
-
-        <div class="summary-card paytm-card" *ngIf="(data?.paytmTotal || 0) > 0">
-          <div class="summary-icon-circle paytm-icon">
-            <mat-icon>account_balance_wallet</mat-icon>
-          </div>
-          <div class="summary-content">
-            <span class="summary-value">&#8377;{{ data?.paytmTotal | number:'1.2-2' }}</span>
-            <span class="summary-label">Paytm</span>
-          </div>
-        </div>
       </div>
 
       <div class="chart-card">
@@ -102,14 +92,21 @@ import { DashboardService } from '../../shared/services/dashboard.service';
         </div>
 
         <div class="vbar-chart" *ngIf="chartData.length > 0">
-          <div class="vbar-col" *ngFor="let item of chartData; let i = index"
-               [style.animation-delay]="(i * 0.1) + 's'">
-            <div class="vbar-value">{{ item.qty }} <span class="vbar-unit">qty</span></div>
-            <div class="vbar-track">
-              <div class="vbar-fill" [style.height]="item.percentage + '%'"
-                   [style.background]="item.gradient"></div>
+          <div class="vbar-body">
+            <div class="vbar-row">
+              <div class="vbar-col" *ngFor="let item of chartData; let i = index"
+                   [style.animation-delay]="(i * 0.1) + 's'">
+                <div class="vbar-value">{{ item.qty }} <span class="vbar-unit">qty</span></div>
+                <div class="vbar-track">
+                  <div class="vbar-fill" [style.height]="item.percentage + '%'"
+                       [style.background]="item.gradient"></div>
+                </div>
+              </div>
             </div>
-            <div class="vbar-label">{{ item.productName }}</div>
+            <div class="vbar-labels">
+              <div class="vbar-label" *ngFor="let item of chartData"
+                   [title]="item.productName">{{ item.productName }}</div>
+            </div>
           </div>
         </div>
 
@@ -353,11 +350,6 @@ import { DashboardService } from '../../shared/services/dashboard.service';
       color: #059669;
     }
 
-    .paytm-icon {
-      background: #FFF7ED;
-      color: #EA580C;
-    }
-
     .summary-content {
       display: flex;
       flex-direction: column;
@@ -406,18 +398,39 @@ import { DashboardService } from '../../shared/services/dashboard.service';
     }
 
     .vbar-chart {
-      display: flex;
-      align-items: flex-end;
-      gap: 14px;
       height: 300px;
       padding: 0 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+    }
+
+    .vbar-chart::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .vbar-body {
+      width: max-content;
+      min-width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vbar-row {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: 28px;
     }
 
     .vbar-col {
-      flex: 1;
+      flex: 1 1 42px;
+      min-width: 42px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: flex-end;
       animation: vbarSlideUp 0.6s ease forwards;
       opacity: 0;
       transform-origin: bottom;
@@ -438,8 +451,12 @@ import { DashboardService } from '../../shared/services/dashboard.service';
       font-size: 13px;
       font-weight: 600;
       color: #1E293B;
-      margin-bottom: 6px;
+      height: 19px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       white-space: nowrap;
+      margin-bottom: 6px;
     }
 
     .vbar-unit {
@@ -449,9 +466,9 @@ import { DashboardService } from '../../shared/services/dashboard.service';
     }
 
     .vbar-track {
-      width: 100%;
-      max-width: 50px;
-      height: 220px;
+      width: 42px;
+      height: calc(100% - 25px);
+      min-height: 30px;
       background: #F1F5F9;
       border-radius: 12px 12px 6px 6px;
       display: flex;
@@ -466,15 +483,28 @@ import { DashboardService } from '../../shared/services/dashboard.service';
       min-height: 6px;
     }
 
+    .vbar-labels {
+      height: 60px;
+      flex-shrink: 0;
+      display: flex;
+      gap: 28px;
+      align-items: center;
+    }
+
     .vbar-label {
+      flex: 1 1 42px;
+      min-width: 42px;
       font-size: 11px;
       font-weight: 500;
       color: #64748B;
       text-align: center;
-      margin-top: 10px;
-      word-break: break-word;
       line-height: 1.3;
-      max-width: 72px;
+      padding: 0 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
     }
 
     .empty-chart {
@@ -537,11 +567,7 @@ import { DashboardService } from '../../shared/services/dashboard.service';
         gap: 12px;
       }
       .vbar-chart {
-        overflow-x: auto;
         padding-bottom: 6px;
-      }
-      .vbar-col {
-        min-width: 44px;
       }
     }
 

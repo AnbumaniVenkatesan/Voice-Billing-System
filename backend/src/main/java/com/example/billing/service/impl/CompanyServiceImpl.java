@@ -296,6 +296,33 @@ public class CompanyServiceImpl implements CompanyService {
 
     @Override
     @Transactional
+    public void deleteCompany(Long companyId) {
+        checkSuperAdmin();
+        Company company = requireCompany(companyId);
+
+        List<User> users = userRepository.findByCompanyId(companyId);
+        if (!users.isEmpty()) {
+            userRepository.deleteAll(users);
+        }
+
+        String logo = company.getLogo();
+        companyRepository.delete(company);
+        log.info("Company deleted: {}", company.getCompanyName());
+
+        if (logo != null && logo.startsWith("/uploads/")) {
+            try {
+                String filename = logo.substring(logo.lastIndexOf('/') + 1);
+                Path filePath = Paths.get(uploadDir).resolve(filename).normalize();
+                Files.deleteIfExists(filePath);
+                log.info("Logo file deleted: {}", filename);
+            } catch (IOException e) {
+                log.warn("Failed to delete logo file: {}", e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    @Transactional
     public void resetCompanyPassword(Long companyId, String newPassword) {
         checkSuperAdmin();
         requireCompany(companyId);
@@ -324,8 +351,6 @@ public class CompanyServiceImpl implements CompanyService {
         stats.put("companyId", companyId);
         stats.put("products", productRepository.findByCompanyId(companyId).size());
         stats.put("invoices", invoiceRepository.findByCompanyId(companyId).size());
-        stats.put("pendingPayments", invoiceRepository.countPendingPayments(companyId));
-        stats.put("completedPayments", invoiceRepository.countCompletedPayments(companyId));
         stats.put("users", userRepository.findByCompanyId(companyId).size());
         return stats;
     }
@@ -408,6 +433,27 @@ public class CompanyServiceImpl implements CompanyService {
         user.setIsActive(false);
         userRepository.save(user);
         log.info("User deactivated: {}", user.getUsername());
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(Long userId) {
+        checkSuperAdmin();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if ("SUPER_ADMIN".equals(user.getRole())) {
+            long superAdmins = userRepository.findAll().stream()
+                    .filter(u -> "SUPER_ADMIN".equals(u.getRole()) && Boolean.TRUE.equals(u.getIsActive()))
+                    .count();
+            if (superAdmins <= 1) {
+                throw new IllegalArgumentException("Cannot delete the last super admin");
+            }
+        }
+        if (user.getUserId().equals(currentUserProvider.getUserId())) {
+            throw new IllegalArgumentException("Cannot delete your own account");
+        }
+        userRepository.delete(user);
+        log.info("User deleted: {}", user.getUsername());
     }
 
     private Company buildCompany(CompanyRequest request) {

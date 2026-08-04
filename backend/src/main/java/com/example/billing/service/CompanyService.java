@@ -29,6 +29,8 @@ public interface CompanyService {
 
     CompanyResponse deactivateCompany(Long id);
 
+    void deleteCompany(Long companyId);
+
     void resetCompanyPassword(Long companyId, String newPassword);
 
     Map<String, Object> getCompanyStats(Long companyId);
@@ -40,4 +42,6 @@ public interface CompanyService {
     void resetUserPassword(Long userId, String newPassword);
 
     void deactivateUser(Long userId);
+
+    void deleteUser(Long userId);
 }

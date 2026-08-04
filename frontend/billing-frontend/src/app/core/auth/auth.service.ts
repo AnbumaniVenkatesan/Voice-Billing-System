@@ -63,6 +63,10 @@ export class AuthService {
     return this.http.get<AuthStatus>(`${this.apiUrl}/status`);
   }
 
+  getSuperAdminUsername(): Observable<{ username: string }> {
+    return this.http.get<{ username: string }>(`${this.apiUrl}/super-admin-username`);
+  }
+
   createSuperAdmin(username: string, password: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/create-super-admin`, { username, password });
   }

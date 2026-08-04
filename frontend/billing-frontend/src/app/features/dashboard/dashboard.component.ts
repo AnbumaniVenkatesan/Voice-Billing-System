@@ -81,14 +81,21 @@ import { Company } from '../../shared/models/company.model';
           </div>
         </div>
         <div class="bar-chart-container">
-          <div class="bar-col" *ngFor="let item of weeklyChartData; let i = index"
-               [style.animation-delay]="(i * 0.08) + 's'">
-            <div class="bar-value">{{ item.qty }}</div>
-            <div class="bar-track">
-              <div class="bar-fill" [style.height]="item.percentage + '%'"
-                   [style.background]="item.color"></div>
+          <div class="bar-chart-body" *ngIf="weeklyChartData.length > 0">
+            <div class="bar-row">
+              <div class="bar-col" *ngFor="let item of weeklyChartData; let i = index"
+                   [style.animation-delay]="(i * 0.08) + 's'">
+                <div class="bar-value">{{ item.qty }}</div>
+                <div class="bar-track">
+                  <div class="bar-fill" [style.height]="item.percentage + '%'"
+                       [style.background]="item.color"></div>
+                </div>
+              </div>
             </div>
-            <div class="bar-label">{{ item.productName }}</div>
+            <div class="bar-labels">
+              <div class="bar-label" *ngFor="let item of weeklyChartData"
+                   [title]="item.productName">{{ item.productName }}</div>
+            </div>
           </div>
           <div class="empty-chart" *ngIf="weeklyChartData.length === 0">
             <mat-icon>bar_chart</mat-icon>
@@ -100,31 +107,31 @@ import { Company } from '../../shared/models/company.model';
       <div class="summary-cards-row">
         <div class="summary-card">
           <div class="summary-icon-circle blue">
-            <mat-icon>trending_up</mat-icon>
+            <mat-icon>receipt_long</mat-icon>
           </div>
           <div class="summary-content">
-            <span class="summary-value">&#8377;{{ data?.monthlySales || 0 }}</span>
-            <span class="summary-label">This Month</span>
+            <span class="summary-value">{{ data?.todayBills || 0 }}</span>
+            <span class="summary-label">Today's Bills</span>
           </div>
         </div>
 
         <div class="summary-card">
           <div class="summary-icon-circle amber">
-            <mat-icon>pending_actions</mat-icon>
+            <mat-icon>payments</mat-icon>
           </div>
           <div class="summary-content">
-            <span class="summary-value">{{ data?.pendingPayments || 0 }}</span>
-            <span class="summary-label">Pending Invoices</span>
+            <span class="summary-value">&#8377;{{ data?.totalRevenue || 0 }}</span>
+            <span class="summary-label">Total Revenue</span>
           </div>
         </div>
 
         <div class="summary-card">
           <div class="summary-icon-circle teal">
-            <mat-icon>check_circle</mat-icon>
+            <mat-icon>shopping_bag</mat-icon>
           </div>
           <div class="summary-content">
-            <span class="summary-value">{{ data?.completedPayments || 0 }}</span>
-            <span class="summary-label">Completed</span>
+            <span class="summary-value">{{ data?.totalProductsSold || 0 }}</span>
+            <span class="summary-label">Total Products Sold</span>
           </div>
         </div>
       </div>
@@ -367,9 +374,6 @@ import { Company } from '../../shared/models/company.model';
     }
 
     .bar-chart-container {
-      display: flex;
-      align-items: flex-end;
-      gap: 12px;
       height: 280px;
       padding: 0 8px;
       overflow-x: auto;
@@ -381,12 +385,28 @@ import { Company } from '../../shared/models/company.model';
       height: 4px;
     }
 
-    .bar-col {
+    .bar-chart-body {
+      width: max-content;
+      min-width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bar-row {
       flex: 1;
-      min-width: 48px;
+      min-height: 0;
+      display: flex;
+      gap: 28px;
+    }
+
+    .bar-col {
+      flex: 1 1 42px;
+      min-width: 42px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: flex-end;
       animation: barGrow 0.5s ease forwards;
       opacity: 0;
       transform-origin: bottom;
@@ -400,14 +420,18 @@ import { Company } from '../../shared/models/company.model';
       font-size: 12px;
       font-weight: 600;
       color: #1E293B;
-      margin-bottom: 6px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       white-space: nowrap;
+      margin-bottom: 6px;
     }
 
     .bar-track {
-      width: 100%;
-      max-width: 44px;
-      height: 200px;
+      width: 42px;
+      height: calc(100% - 24px);
+      min-height: 30px;
       background: #F1F5F9;
       border-radius: 10px 10px 4px 4px;
       display: flex;
@@ -422,15 +446,28 @@ import { Company } from '../../shared/models/company.model';
       min-height: 4px;
     }
 
+    .bar-labels {
+      height: 60px;
+      flex-shrink: 0;
+      display: flex;
+      gap: 28px;
+      align-items: center;
+    }
+
     .bar-label {
+      flex: 1 1 42px;
+      min-width: 42px;
       font-size: 11px;
       font-weight: 500;
       color: #64748B;
       text-align: center;
-      margin-top: 10px;
-      word-break: break-word;
       line-height: 1.3;
-      max-width: 68px;
+      padding: 0 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
     }
 
     .empty-chart {
@@ -562,9 +599,6 @@ import { Company } from '../../shared/models/company.model';
       }
       .bar-chart-container {
         height: 240px;
-      }
-      .bar-track {
-        height: 160px;
       }
     }
 

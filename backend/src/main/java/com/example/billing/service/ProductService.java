@@ -25,6 +25,8 @@ public interface ProductService {
 
     StockUpdateResponse updateStockFromExcel(MultipartFile file);
 
+    byte[] exportToExcel();
+
     List<String> getAliases(Long productId);
 
     List<String> addAlias(Long productId, String aliasName);

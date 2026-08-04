@@ -49,7 +49,6 @@ import { Invoice } from '../../shared/models/models';
               <select [(ngModel)]="searchStatus" (change)="applyFilter()">
                 <option value="">All</option>
                 <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
               </select>
             </div>
           </div>
@@ -99,7 +98,9 @@ import { Invoice } from '../../shared/models/models';
             <ng-container matColumnDef="paymentStatus">
               <th mat-header-cell *matHeaderCellDef>Status</th>
               <td mat-cell *matCellDef="let row">
-                <span class="status-badge" [class]="row.paymentStatus?.toLowerCase()">{{ row.paymentStatus }}</span>
+                <span class="status-badge completed">
+                  <mat-icon>check_circle</mat-icon> Completed
+                </span>
               </td>
             </ng-container>
             <ng-container matColumnDef="invoiceDate">
@@ -336,15 +337,17 @@ import { Invoice } from '../../shared/models/models';
       font-weight: 600;
     }
 
-    .status-badge.completed,
-    .status-badge.paid {
-      background: #ECFDF5;
-      color: #047857;
+    .status-badge mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
     }
 
-    .status-badge.pending {
-      background: #FEF3C7;
-      color: #B45309;
+    .status-badge.completed,
+    .status-badge.paid {
+      background: #DCFCE7;
+      color: #15803D;
     }
 
     .status-badge.failed {

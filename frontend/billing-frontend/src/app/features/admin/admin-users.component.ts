@@ -81,6 +81,9 @@ import { Company } from '../../shared/models/company.model';
                 <button class="action-btn" *ngIf="user.isActive" (click)="deactivate(user)">
                   <mat-icon>block</mat-icon> Deactivate
                 </button>
+                <button class="action-btn delete" (click)="deleteUser(user)">
+                  <mat-icon>delete</mat-icon> Delete
+                </button>
               </td>
             </tr>
           </tbody>
@@ -219,6 +222,7 @@ import { Company } from '../../shared/models/company.model';
     }
     .action-btn:hover { background: #F8FAFC; border-color: #A7F3D0; color: #047857; }
     .action-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    .action-btn.delete:hover { background: #FEF2F2; border-color: #FCA5A5; color: #DC2626; }
     .error-message { color: #EF4444; font-size: 13px; text-align: center; }
     @media (max-width: 767.98px) {
       .admin-page { padding: 16px; }
@@ -334,6 +338,17 @@ export class AdminUsersComponent implements OnInit {
     this.adminService.deactivateUser(user.userId).subscribe({
       next: () => {
         this.showToast('User deactivated', 'success');
+        this.loadUsers();
+      },
+      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    });
+  }
+
+  deleteUser(user: AdminUser): void {
+    if (!confirm(`Permanently delete user "${user.username}"? This cannot be undone.`)) return;
+    this.adminService.deleteUser(user.userId).subscribe({
+      next: () => {
+        this.showToast('User deleted', 'success');
         this.loadUsers();
       },
       error: (err) => this.showToast(this.errorMessage(err), 'error')

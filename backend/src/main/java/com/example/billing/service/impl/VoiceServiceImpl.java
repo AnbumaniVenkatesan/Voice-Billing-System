@@ -92,6 +92,36 @@ public class VoiceServiceImpl implements VoiceService {
         TAMIL_NUMBER_MAP.put("ட்வென்டி", "20");
         TAMIL_NUMBER_MAP.put("தர்ட்டி", "30");
 
+        // Additional colloquial Tamil / Tanglish forms
+        TAMIL_NUMBER_MAP.put("ஒண்ணு", "1");
+        TAMIL_NUMBER_MAP.put("மூணு", "3");
+        TAMIL_NUMBER_MAP.put("onu", "1");
+        TAMIL_NUMBER_MAP.put("onnu", "1");
+        TAMIL_NUMBER_MAP.put("pathu", "10");
+
+        // English number words (one..twenty) — recognized for all companies
+        TAMIL_NUMBER_MAP.put("one", "1");
+        TAMIL_NUMBER_MAP.put("two", "2");
+        TAMIL_NUMBER_MAP.put("three", "3");
+        TAMIL_NUMBER_MAP.put("four", "4");
+        TAMIL_NUMBER_MAP.put("five", "5");
+        TAMIL_NUMBER_MAP.put("six", "6");
+        TAMIL_NUMBER_MAP.put("seven", "7");
+        TAMIL_NUMBER_MAP.put("eight", "8");
+        TAMIL_NUMBER_MAP.put("nine", "9");
+        TAMIL_NUMBER_MAP.put("ten", "10");
+        TAMIL_NUMBER_MAP.put("eleven", "11");
+        TAMIL_NUMBER_MAP.put("twelve", "12");
+        TAMIL_NUMBER_MAP.put("thirteen", "13");
+        TAMIL_NUMBER_MAP.put("fourteen", "14");
+        TAMIL_NUMBER_MAP.put("fifteen", "15");
+        TAMIL_NUMBER_MAP.put("sixteen", "16");
+        TAMIL_NUMBER_MAP.put("seventeen", "17");
+        TAMIL_NUMBER_MAP.put("eighteen", "18");
+        TAMIL_NUMBER_MAP.put("nineteen", "19");
+        TAMIL_NUMBER_MAP.put("twenty", "20");
+
+        // English number words (digits 1-10, 20-50) — separate fallback map
         ENGLISH_NUMBER_MAP.put("one", 1);
         ENGLISH_NUMBER_MAP.put("two", 2);
         ENGLISH_NUMBER_MAP.put("three", 3);
@@ -106,6 +136,16 @@ public class VoiceServiceImpl implements VoiceService {
         ENGLISH_NUMBER_MAP.put("thirty", 30);
         ENGLISH_NUMBER_MAP.put("forty", 40);
         ENGLISH_NUMBER_MAP.put("fifty", 50);
+    }
+
+    // All spoken number words (English, Tamil, Tanglish) sorted by length DESCENDING
+    // so longest words (e.g. "eighteen") are matched before their prefixes ("eight").
+    private static final List<Map.Entry<String, String>> NUMBER_WORD_ENTRIES;
+
+    static {
+        NUMBER_WORD_ENTRIES = new ArrayList<>(TAMIL_NUMBER_MAP.entrySet());
+        NUMBER_WORD_ENTRIES.sort(
+                (a, b) -> Integer.compare(b.getKey().length(), a.getKey().length()));
     }
 
     private static final Map<String, String> UNIT_PATTERNS = new LinkedHashMap<>();
@@ -671,7 +711,8 @@ public class VoiceServiceImpl implements VoiceService {
         if (text == null || text.isBlank()) return items;
 
         String lower = text.toLowerCase();
-        String normalizedText = normalizeForMatch(lower);
+        String normalizedText = normalizeNumberWords(lower);
+        normalizedText = normalizeForMatch(normalizedText);
 
         // Build candidates sorted by length DESCENDING (longest first)
         // This ensures "onion dosa" is tried before "dosa"
@@ -754,7 +795,7 @@ public class VoiceServiceImpl implements VoiceService {
         }
 
         if (hits.isEmpty()) {
-            ParsedItem single = parseSingleSegmentToItem(text);
+            ParsedItem single = parseSingleSegmentToItem(normalizedText);
             if (single != null) items.add(single);
             return items;
         }
@@ -766,7 +807,7 @@ public class VoiceServiceImpl implements VoiceService {
             ProductHit hit = hits.get(i);
             int contextStart = (i > 0) ? hits.get(i - 1).end : 0;
             int contextEnd = hit.start;
-            String contextBefore = text.substring(contextStart, contextEnd);
+            String contextBefore = normalizedText.substring(contextStart, contextEnd);
 
             double quantity = extractQuantity(contextBefore);
             String unit = extractUnit(contextBefore);
@@ -778,9 +819,9 @@ public class VoiceServiceImpl implements VoiceService {
             // If no quantity before, check text AFTER the product name
             if (quantity == 1 && (contextBefore.isBlank() || contextBefore.trim().isEmpty())) {
                 int afterStart = hit.end;
-                int afterEnd = (i + 1 < hits.size()) ? hits.get(i + 1).start : text.length();
+                int afterEnd = (i + 1 < hits.size()) ? hits.get(i + 1).start : normalizedText.length();
                 if (afterEnd > afterStart) {
-                    String contextAfter = text.substring(afterStart, afterEnd);
+                    String contextAfter = normalizedText.substring(afterStart, afterEnd);
                     double qtyAfter = extractQuantity(contextAfter);
                     if (qtyAfter != 1) {
                         quantity = qtyAfter;
@@ -885,6 +926,72 @@ public class VoiceServiceImpl implements VoiceService {
     // Text extraction helpers
     // =========================================================================
 
+    // =========================================================================
+    // Quantity normalization — spoken number words → digits (hardcoded, no AI/NLP)
+    // Applied BEFORE product matching so "three idly" == "3 idly", "மூணு இட்லி" == "3 இட்லி".
+    // =========================================================================
+
+    private String normalizeNumberWords(String text) {
+        if (text == null || text.isBlank()) return text;
+
+        String result = text.toLowerCase();
+
+        // Fraction phrases first (guarded so product names like "half boil" are not converted)
+        result = replaceFractionPhrase(result, "மூன்றில் ஒரு", "1/3");
+        result = replaceFractionPhrase(result, "முன்னூறில் ஒரு", "1/3");
+        result = replaceFractionPhrase(result, "முக்கால்", "3/4");
+        result = replaceFractionPhrase(result, "mukkal", "3/4");
+        result = replaceFractionPhrase(result, "two thirds", "2/3");
+        result = replaceFractionPhrase(result, "two third", "2/3");
+        result = replaceFractionPhrase(result, "three quarters", "3/4");
+        result = replaceFractionPhrase(result, "three quarter", "3/4");
+        result = replaceFractionPhrase(result, "one quarter", "1/4");
+        result = replaceFractionPhrase(result, "one third", "1/3");
+        result = replaceFractionPhrase(result, "one half", "1/2");
+        result = replaceFractionPhrase(result, "half", "1/2");
+        result = replaceFractionPhrase(result, "quarter", "1/4");
+        result = replaceFractionPhrase(result, "அரை", "1/2");
+        result = replaceFractionPhrase(result, "arai", "1/2");
+        result = replaceFractionPhrase(result, "கால்", "1/4");
+        result = replaceFractionPhrase(result, "kaal", "1/4");
+
+        // Spoken number words → digits, longest word first so "eighteen" wins over "eight"
+        for (Map.Entry<String, String> entry : NUMBER_WORD_ENTRIES) {
+            String word = entry.getKey();
+            Pattern p = Pattern.compile(
+                    "(?i)(?<![\\p{L}\\p{M}\\d])" + Pattern.quote(word) + "(?![\\p{L}\\p{M}])");
+            result = result.replaceAll(p.pattern(), entry.getValue());
+        }
+
+        return result.trim();
+    }
+
+    private String replaceFractionPhrase(String text, String phrase, String replacement) {
+        if (text == null || text.isEmpty() || phrase == null || phrase.isEmpty()) return text;
+        if (!text.toLowerCase().contains(phrase.toLowerCase())) return text;
+
+        Pattern p = Pattern.compile(
+                "(?i)(?<![\\p{L}\\p{M}\\d])" + Pattern.quote(phrase) + "(?![\\p{L}\\p{M}])");
+        Matcher m = p.matcher(text);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            if (isFollowedByProductWord(text, m.group())) {
+                // e.g. "half boil" — the fraction word is part of a product name
+                m.appendReplacement(sb, Matcher.quoteReplacement(m.group()));
+            } else {
+                m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            }
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    private boolean wordBoundaryFind(String text, String word) {
+        return Pattern.compile(
+                "(?i)(?<![\\p{L}\\p{M}\\d])" + Pattern.quote(word) + "(?![\\p{L}\\p{M}])")
+                .matcher(text).find();
+    }
+
     private double extractQuantity(String segment) {
         String lower = segment.toLowerCase();
 
@@ -918,16 +1025,16 @@ public class VoiceServiceImpl implements VoiceService {
             return Double.parseDouble(numberMatcher.group(1));
         }
 
-        // 5) Tamil number words
-        for (Map.Entry<String, String> entry : TAMIL_NUMBER_MAP.entrySet()) {
-            if (lower.contains(entry.getKey())) {
+        // 5) Number words (English, Tamil, Tanglish) — longest word first, word-boundary match
+        for (Map.Entry<String, String> entry : NUMBER_WORD_ENTRIES) {
+            if (wordBoundaryFind(lower, entry.getKey())) {
                 return Double.parseDouble(entry.getValue());
             }
         }
 
-        // 6) English number words
+        // 6) Extra English number words (thirty, forty, fifty)
         for (Map.Entry<String, Integer> entry : ENGLISH_NUMBER_MAP.entrySet()) {
-            if (lower.contains(entry.getKey())) {
+            if (wordBoundaryFind(lower, entry.getKey())) {
                 return entry.getValue();
             }
         }

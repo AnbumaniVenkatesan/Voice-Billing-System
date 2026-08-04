@@ -12,7 +12,5 @@ public interface InvoiceService {
 
     InvoiceResponse getInvoiceById(Long id);
 
-    InvoiceResponse markCompleted(Long invoiceId, String gateway);
-
     void deleteInvoice(Long invoiceId);
 }

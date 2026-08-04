@@ -47,4 +47,8 @@ export class ProductService {
     formData.append('file', file);
     return this.http.post<StockUpdateResponse>(`${this.apiUrl}/stock-excel`, formData);
   }
+
+  exportExcel(): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/export-excel`, { responseType: 'blob' });
+  }
 }

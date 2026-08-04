@@ -7,6 +7,7 @@ import com.example.billing.entity.User;
 import com.example.billing.repository.UserRepository;
 import com.example.billing.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -26,14 +28,21 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest request) {
+        String username = request.getUsername() == null ? null : request.getUsername().trim();
+        log.info("Login attempt for user '{}'", username);
+
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(username, request.getPassword())
         );
 
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        log.info("Password verified successfully for user '{}'", username);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
 
         String token = jwtTokenProvider.generateToken(user);
+
+        log.info("JWT generated and login succeeded for user '{}'", username);
 
         return LoginResponse.builder()
                 .token(token)
@@ -55,15 +64,17 @@ public class AuthServiceImpl implements AuthService {
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException("Password is required");
         }
-        if (userRepository.existsByUsername(username.trim())) {
-            throw new IllegalArgumentException("Username already exists: " + username.trim());
+        String trimmedUsername = username.trim();
+        if (userRepository.existsByUsername(trimmedUsername)) {
+            throw new IllegalArgumentException("Username already exists: " + trimmedUsername);
         }
         User superAdmin = User.builder()
-                .username(username.trim())
+                .username(trimmedUsername)
                 .password(passwordEncoder.encode(password))
                 .role("SUPER_ADMIN")
                 .isActive(true)
                 .build();
         userRepository.save(superAdmin);
+        log.info("Super admin '{}' created", trimmedUsername);
     }
 }

@@ -60,6 +60,15 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/export-excel")
+    public ResponseEntity<byte[]> exportExcel() {
+        byte[] data = productService.exportToExcel();
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .header("Content-Disposition", "attachment; filename=products.xlsx")
+                .body(data);
+    }
+
     @PostMapping("/import-excel")
     public ResponseEntity<ExcelImportResponse> importExcel(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {

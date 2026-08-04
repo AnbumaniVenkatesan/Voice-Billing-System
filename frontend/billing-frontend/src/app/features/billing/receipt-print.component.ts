@@ -80,9 +80,19 @@ export class ReceiptPrintComponent {
     const hasDiscount = invoice.discount && invoice.discount > 0;
     const discountRow = hasDiscount ? '\n ' + formatSummaryRow('Discount', -(invoice.discount)) : '';
 
-    const taxPercent = company?.taxPercentage && company.taxPercentage > 0 ? company.taxPercentage : 3;
-    const sgstLabel = 'SGST (' + (taxPercent / 2).toFixed(1) + '%)';
-    const cgstLabel = 'CGST (' + (taxPercent / 2).toFixed(1) + '%)';
+    const slabs = (invoice.taxSlabs || []).slice().sort((a: any, b: any) => a.gstRate - b.gstRate);
+    let gstBreakdown: string;
+    if (slabs.length > 0) {
+      gstBreakdown = slabs.map((s: any) =>
+        ' ' + formatSummaryRow('SGST (' + s.sgstRate + '%)', s.sgstAmount || 0) + '\n ' +
+        formatSummaryRow('CGST (' + s.cgstRate + '%)', s.cgstAmount || 0)
+      ).join('\n');
+    } else {
+      const taxPercent = company?.taxPercentage && company.taxPercentage > 0 ? company.taxPercentage : 3;
+      const halfRate = (taxPercent / 2).toFixed(1);
+      gstBreakdown = ' ' + formatSummaryRow('SGST (' + halfRate + '%)', invoice.sgstAmount || 0) + '\n ' +
+        formatSummaryRow('CGST (' + halfRate + '%)', invoice.cgstAmount || 0);
+    }
 
     const html = `<!DOCTYPE html>
 <html>
@@ -154,8 +164,7 @@ export class ReceiptPrintComponent {
 <div class="double-line"></div>
 <div class="summary-row"> ${formatSummaryRow('Subtotal', invoice.subtotal || 0)}</div>
 <div class="summary-row" style="font-size: 10px; color: #555;"> Included GST</div>
-<div class="summary-row"> ${formatSummaryRow(sgstLabel, invoice.sgstAmount || 0)}</div>
-<div class="summary-row"> ${formatSummaryRow(cgstLabel, invoice.cgstAmount || 0)}${discountRow}
+<div class="summary-row">${gstBreakdown}${discountRow}
 </div>
 
 <div class="double-line"></div>

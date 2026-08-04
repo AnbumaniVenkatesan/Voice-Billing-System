@@ -54,6 +54,16 @@ export interface InvoiceItem {
   unit: string;
   price: number;
   total: number;
+  gstPercentage: number;
+}
+
+export interface TaxSlab {
+  gstRate: number;
+  sgstRate: number;
+  cgstRate: number;
+  sgstAmount: number;
+  cgstAmount: number;
+  gstAmount: number;
 }
 
 export interface Invoice {
@@ -71,12 +81,14 @@ export interface Invoice {
   totalAmount: number;
   paymentStatus: string;
   invoiceDate: string;
+  taxSlabs: TaxSlab[];
 }
 
 export interface InvoiceRequest {
-  customerId: number;
+  customerId?: number;
   items: InvoiceItemRequest[];
   discount: number;
+  paymentMethod?: string;
 }
 
 export interface InvoiceItemRequest {
@@ -124,30 +136,13 @@ export interface VoiceAliasRequest {
   productId: number;
 }
 
-export interface Payment {
-  paymentId: number;
-  invoiceId: number;
-  invoiceNumber: string;
-  gateway: string;
-  orderId: string;
-  transactionId: string;
-  amount: number;
-  status: string;
-  qrCodeUrl: string;
-  createdAt: string;
-}
-
-export interface PaymentRequest {
-  invoiceId: number;
-  gateway: string;
-}
-
 export interface DashboardData {
   totalProducts: number;
   todaySales: number;
   monthlySales: number;
-  pendingPayments: number;
-  completedPayments: number;
+  todayBills: number;
+  totalRevenue: number;
+  totalProductsSold: number;
 }
 
 export interface ExcelImportResponse {

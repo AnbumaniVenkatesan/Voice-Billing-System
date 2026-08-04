@@ -14,8 +14,9 @@ import { Router } from '@angular/router';
 import { VoiceService } from '../../shared/services/voice.service';
 import { InvoiceService } from '../../shared/services/invoice.service';
 import { CompanyService } from '../../shared/services/company.service';
-import { VoiceItem, VoiceResponse, Invoice, UnmatchedItem, SuggestedProduct, Product } from '../../shared/models/models';
+import { VoiceItem, VoiceResponse, Invoice, UnmatchedItem, SuggestedProduct, Product, TaxSlab } from '../../shared/models/models';
 import { Company } from '../../shared/models/company.model';
+import { aggregateTaxSlabs, formatMoney } from '../../shared/utils/gst.util';
 import { ProductSearchDialogComponent, ProductSearchResult } from './product-search-dialog.component';
 import { QrDialogComponent } from '../billing/qr-dialog.component';
 import { PaymentSuccessDialogComponent } from '../billing/payment-success-dialog.component';
@@ -202,23 +203,23 @@ declare var webkitSpeechRecognition: any;
                 <span class="summary-label">Subtotal</span>
                 <span class="summary-value">&#8377;{{ subtotal.toFixed(2) }}</span>
               </div>
-              <div class="summary-row" *ngIf="gstAmount > 0">
+              <div class="summary-row" *ngIf="totalGst > 0">
                 <span class="summary-label">Included GST</span>
-                <span class="summary-value">&#8377;{{ gstAmount.toFixed(2) }}</span>
+                <span class="summary-value">&#8377;{{ formatMoney(totalGst) }}</span>
               </div>
-              <div class="summary-row" *ngIf="gstAmount > 0">
-                <span class="summary-label">  SGST (1.5%)</span>
-                <span class="summary-value">&#8377;{{ (gstAmount / 2).toFixed(2) }}</span>
+              <div class="summary-row tax-slab-row" *ngFor="let slab of taxSlabs">
+                <span class="summary-label">  SGST ({{ slab.sgstRate }}%)</span>
+                <span class="summary-value">&#8377;{{ formatMoney(slab.sgstAmount) }}</span>
               </div>
-              <div class="summary-row" *ngIf="gstAmount > 0">
-                <span class="summary-label">  CGST (1.5%)</span>
-                <span class="summary-value">&#8377;{{ (gstAmount / 2).toFixed(2) }}</span>
+              <div class="summary-row tax-slab-row" *ngFor="let slab of taxSlabs">
+                <span class="summary-label">  CGST ({{ slab.cgstRate }}%)</span>
+                <span class="summary-value">&#8377;{{ formatMoney(slab.cgstAmount) }}</span>
               </div>
               <div class="summary-row total-row">
                 <span class="summary-label">Total</span>
                 <span class="summary-value total-value">&#8377;{{ subtotal.toFixed(2) }}</span>
               </div>
-              <p class="gst-note" *ngIf="gstAmount > 0">Prices are inclusive of GST</p>
+              <p class="gst-note" *ngIf="totalGst > 0">Prices are inclusive of GST</p>
             </div>
             <div class="summary-actions">
               <button class="btn btn-danger btn-lg"
@@ -1207,6 +1208,11 @@ declare var webkitSpeechRecognition: any;
       color: var(--text-primary);
     }
 
+    .tax-slab-row .summary-label {
+      padding-left: 14px;
+      font-size: 13px;
+    }
+
     .total-row {
       padding-top: 10px;
       border-top: 1px solid var(--border);
@@ -1627,9 +1633,14 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   unmatchedItems: UnmatchedItem[] = [];
   selectedSuggestions: Record<number, number> = {};
   subtotal = 0;
-  gstAmount = 0;
+  taxSlabs: TaxSlab[] = [];
   totalAmount = 0;
   generating = false;
+  formatMoney = formatMoney;
+
+  get totalGst(): number {
+    return this.taxSlabs.reduce((sum, slab) => sum + slab.gstAmount, 0);
+  }
 
   qrCodeDataUrl = '';
   createdInvoice: Invoice | null = null;
@@ -1983,9 +1994,10 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   calculateTotals(): void {
     this.subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const taxPercent = this.company?.taxPercentage && this.company.taxPercentage > 0 ? this.company.taxPercentage : 3;
-    // Inclusive GST: reverse-calculate from subtotal
-    this.gstAmount = Math.round(this.subtotal * taxPercent / (100 + taxPercent) * 100) / 100;
+    this.taxSlabs = aggregateTaxSlabs(this.cart.map(item => ({
+      total: item.price * item.quantity,
+      gstPercentage: item.gstPercentage
+    })));
     // Total is same as subtotal since GST is included in prices
     this.totalAmount = this.subtotal;
   }
@@ -2007,15 +2019,13 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stopListening();
     this.generating = true;
 
-    const customerId = 1;
-
     const request = {
-      customerId: customerId,
       items: this.cart.filter(c => c.productId).map(c => ({
         productId: c.productId!,
         quantity: c.quantity
       })),
-      discount: 0
+      discount: 0,
+      paymentMethod: 'upi'
     };
 
     this.invoiceService.createInvoice(request).subscribe({
@@ -2057,7 +2067,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
           paymentMethod: 'QR',
           onPaymentReceived: () => this.receiveQrPayment(),
           onChangeToCash: () => this.switchToCash(),
-          onCancel: () => this.cancelQrPayment(),
           isHotel: this.isHotel
         }
       });
@@ -2070,45 +2079,25 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   private receiveQrPayment(): void {
     const inv = this.createdInvoice;
     if (!inv) return;
-    this.invoiceService.markCompleted(inv.invoiceId!, 'upi').subscribe({
-      next: () => {
-        this.dialog.open(PaymentSuccessDialogComponent, {
-          width: '360px',
-          disableClose: true,
-          data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
-        });
-        this.printReceiptFor(inv, 'UPI/QR');
-        this.finishBillingSession();
-      },
-      error: () => this.snackBar.open('Error updating status', 'Close', { duration: 3000 })
+    this.dialog.open(PaymentSuccessDialogComponent, {
+      width: '360px',
+      disableClose: true,
+      data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
     });
+    this.printReceiptFor(inv, 'UPI/QR');
+    this.finishBillingSession();
   }
 
   private switchToCash(): void {
     const inv = this.createdInvoice;
     if (!inv) return;
-    this.invoiceService.markCompleted(inv.invoiceId!, 'cash').subscribe({
-      next: () => {
-        this.dialog.open(PaymentSuccessDialogComponent, {
-          width: '360px',
-          disableClose: true,
-          data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
-        });
-        this.printReceiptFor(inv, 'CASH');
-        this.finishBillingSession();
-      },
-      error: () => this.snackBar.open('Error updating status', 'Close', { duration: 3000 })
+    this.dialog.open(PaymentSuccessDialogComponent, {
+      width: '360px',
+      disableClose: true,
+      data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
     });
-  }
-
-  private cancelQrPayment(): void {
-    const inv = this.createdInvoice;
-    if (!inv) return;
-    this.invoiceService.deleteInvoice(inv.invoiceId!).subscribe({
-      next: () => { this.createdInvoice = null; },
-      error: () => {}
-    });
-    this.snackBar.open('Payment cancelled. Cart preserved.', 'Close', { duration: 3000 });
+    this.printReceiptFor(inv, 'CASH');
+    this.finishBillingSession();
   }
 
   private finishBillingSession(): void {
@@ -2135,16 +2124,15 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.stopListening();
 
-    const customerId = 1;
     this.generating = true;
 
     const request = {
-      customerId: customerId,
       items: this.cart.filter(c => c.productId).map(c => ({
         productId: c.productId!,
         quantity: c.quantity
       })),
-      discount: 0
+      discount: 0,
+      paymentMethod: 'cash'
     };
 
     this.invoiceService.createInvoice(request).subscribe({
@@ -2169,18 +2157,13 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
     const inv = this.createdInvoice;
     if (!inv) return;
 
-    this.invoiceService.markCompleted(inv.invoiceId!, 'cash').subscribe({
-      next: () => {
-        this.dialog.open(PaymentSuccessDialogComponent, {
-          width: '360px',
-          disableClose: true,
-          data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
-        });
-        this.createdInvoice!.paymentStatus = 'completed';
-        this.showCashReceipt = false;
-      },
-      error: () => this.snackBar.open('Error updating status', 'Close', { duration: 3000 })
+    this.dialog.open(PaymentSuccessDialogComponent, {
+      width: '360px',
+      disableClose: true,
+      data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
     });
+    this.createdInvoice!.paymentStatus = 'completed';
+    this.showCashReceipt = false;
 
     this.printReceiptFor(inv, 'CASH');
   }

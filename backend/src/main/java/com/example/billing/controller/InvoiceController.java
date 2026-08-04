@@ -36,14 +36,6 @@ public class InvoiceController {
         return ResponseEntity.ok(invoice);
     }
 
-    @PatchMapping("/{id}/complete")
-    public ResponseEntity<InvoiceResponse> markCompleted(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "cash") String gateway) {
-        InvoiceResponse response = invoiceService.markCompleted(id, gateway);
-        return ResponseEntity.ok(response);
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteInvoice(@PathVariable Long id) {
         invoiceService.deleteInvoice(id);

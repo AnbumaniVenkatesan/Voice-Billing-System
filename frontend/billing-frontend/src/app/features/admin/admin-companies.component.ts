@@ -97,6 +97,9 @@ import { AdminCompanyFormDialogComponent, CompanyFormData } from './admin-compan
             <button class="action-btn" (click)="resetPassword(company)">
               <mat-icon>key</mat-icon> Reset Password
             </button>
+            <button class="action-btn delete" (click)="deleteCompany(company)">
+              <mat-icon>delete</mat-icon> Delete
+            </button>
           </div>
 
           <div class="stats-panel" *ngIf="statsMap.get(company.companyId)">
@@ -104,8 +107,6 @@ import { AdminCompanyFormDialogComponent, CompanyFormData } from './admin-compan
               <div class="stat"><span class="stat-value">{{ statsMap.get(company.companyId)!.products }}</span><span class="stat-label">Products</span></div>
               <div class="stat"><span class="stat-value">{{ statsMap.get(company.companyId)!.invoices }}</span><span class="stat-label">Invoices</span></div>
               <div class="stat"><span class="stat-value">{{ statsMap.get(company.companyId)!.users }}</span><span class="stat-label">Users</span></div>
-              <div class="stat"><span class="stat-value">{{ statsMap.get(company.companyId)!.pendingPayments }}</span><span class="stat-label">Pending</span></div>
-              <div class="stat"><span class="stat-value">{{ statsMap.get(company.companyId)!.completedPayments }}</span><span class="stat-label">Paid</span></div>
             </div>
           </div>
         </div>
@@ -225,6 +226,7 @@ import { AdminCompanyFormDialogComponent, CompanyFormData } from './admin-compan
     }
     .action-btn:hover { background: #F8FAFC; border-color: #C7D2FE; color: #7C3AED; }
     .action-btn mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .action-btn.delete:hover { background: #FEF2F2; border-color: #FCA5A5; color: #DC2626; }
     .stats-panel {
       margin-top: 16px; padding: 16px;
       background: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 14px;
@@ -333,6 +335,17 @@ export class AdminCompaniesComponent implements OnInit {
     this.adminService.deactivateCompany(company.companyId).subscribe({
       next: () => {
         this.showToast(`${company.companyName} deactivated`, 'success');
+        this.loadCompanies();
+      },
+      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    });
+  }
+
+  deleteCompany(company: Company): void {
+    if (!confirm(`Permanently delete ${company.companyName}? This removes ALL its products, customers, invoices and payments. This cannot be undone.`)) return;
+    this.adminService.deleteCompany(company.companyId).subscribe({
+      next: () => {
+        this.showToast(`${company.companyName} deleted`, 'success');
         this.loadCompanies();
       },
       error: (err) => this.showToast(this.errorMessage(err), 'error')

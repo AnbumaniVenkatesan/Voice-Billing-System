@@ -150,6 +150,7 @@ CREATE TABLE invoice_item (
     unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    gst_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     company_id BIGINT NULL,
     FOREIGN KEY (invoice_id) REFERENCES invoice(invoice_id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES product(product_id) ON DELETE RESTRICT,

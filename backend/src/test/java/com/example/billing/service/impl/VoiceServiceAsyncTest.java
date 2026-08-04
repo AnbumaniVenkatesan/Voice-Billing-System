@@ -339,4 +339,119 @@ class VoiceServiceAsyncTest {
 
         assertThat(response.getMatchedItems()).hasSize(2);
     }
+
+    // =========================================================================
+    // Test: Quantity normalization — spoken number words → digits (hardcoded)
+    // =========================================================================
+
+    private Product createNamedProduct(Long id, String name, String tamilName) {
+        return createProduct(id, name, tamilName, new BigDecimal("10.00"), BigDecimal.ZERO, 100);
+    }
+
+    private VoiceResponse process(String text, List<Product> products) {
+        when(productRepository.findByStatusAndCompanyId(eq("active"), anyLong()))
+                .thenReturn(products);
+        VoiceRequest request = new VoiceRequest();
+        request.setText(text);
+        return voiceService.processVoiceCommand(request);
+    }
+
+    private double qty(VoiceResponse response) {
+        assertThat(response.getMatchedItems()).hasSize(1);
+        return response.getMatchedItems().get(0).getQuantity();
+    }
+
+    @Test
+    @DisplayName("English qty before product — 'three idly' → 3")
+    void quantityNormalization_englishBeforeProduct() {
+        VoiceResponse response = process("three idly",
+                List.of(createNamedProduct(1L, "Idly", "Idly")));
+        assertThat(qty(response)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("English qty after product — 'idly three' → 3")
+    void quantityNormalization_englishAfterProduct() {
+        VoiceResponse response = process("idly three",
+                List.of(createNamedProduct(1L, "Idly", "Idly")));
+        assertThat(qty(response)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Tanglish qty before product — 'rendu chicken biryani' → 2")
+    void quantityNormalization_tanglishBeforeProduct() {
+        VoiceResponse response = process("rendu chicken biryani",
+                List.of(createNamedProduct(1L, "Chicken Biryani", "Chicken Biryani")));
+        assertThat(qty(response)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Tamil qty before product — 'மூணு இட்லி' → 3")
+    void quantityNormalization_tamilBeforeProduct() {
+        VoiceResponse response = process("மூணு இட்லி",
+                List.of(createNamedProduct(1L, "Idly", "இட்லி")));
+        assertThat(qty(response)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Tamil qty after product — 'இட்லி மூணு' → 3")
+    void quantityNormalization_tamilAfterProduct() {
+        VoiceResponse response = process("இட்லி மூணு",
+                List.of(createNamedProduct(1L, "Idly", "இட்லி")));
+        assertThat(qty(response)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Tamil qty before multi-word Tamil product — 'ரெண்டு சிக்கன் பிரியாணி' → 2")
+    void quantityNormalization_tamilMultiWordProduct() {
+        VoiceResponse response = process("ரெண்டு சிக்கன் பிரியாணி",
+                List.of(createNamedProduct(1L, "Chicken Biryani", "சிக்கன் பிரியாணி")));
+        assertThat(qty(response)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Multi-word product with leading qty — 'three onion dosa' → 3")
+    void quantityNormalization_multiWordEnglishProduct() {
+        VoiceResponse response = process("three onion dosa",
+                List.of(createNamedProduct(1L, "Onion Dosa", "Onion Dosa")));
+        assertThat(qty(response)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Simple English qty — 'two coffee' → 2")
+    void quantityNormalization_twoCoffee() {
+        VoiceResponse response = process("two coffee",
+                List.of(createNamedProduct(1L, "Coffee", "Coffee")));
+        assertThat(qty(response)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Teen number — 'sixteen idly' → 16 (not 6)")
+    void quantityNormalization_teenNumber() {
+        VoiceResponse response = process("sixteen idly",
+                List.of(createNamedProduct(1L, "Idly", "Idly")));
+        assertThat(qty(response)).isEqualTo(16);
+    }
+
+    @Test
+    @DisplayName("'one half boil' — fraction word part of product name → qty 1")
+    void quantityNormalization_halfBoilProduct() {
+        VoiceResponse response = process("one half boil",
+                List.of(createNamedProduct(1L, "Half Boil", "Half Boil")));
+        assertThat(qty(response)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Multiple products with Tamil quantities — each gets correct qty")
+    void quantityNormalization_multipleProducts() {
+        List<Product> products = List.of(
+                createNamedProduct(1L, "Idly", "இட்லி"),
+                createNamedProduct(2L, "Dosa", "தோசை"));
+        VoiceResponse response = process("மூணு இட்லி ரெண்டு தோசை", products);
+        assertThat(response.getMatchedItems()).hasSize(2);
+        assertThat(response.getMatchedItems().get(0).getProductId()).isEqualTo(1L);
+        assertThat(response.getMatchedItems().get(0).getQuantity()).isEqualTo(3);
+        assertThat(response.getMatchedItems().get(1).getProductId()).isEqualTo(2L);
+        assertThat(response.getMatchedItems().get(1).getQuantity()).isEqualTo(2);
+    }
 }

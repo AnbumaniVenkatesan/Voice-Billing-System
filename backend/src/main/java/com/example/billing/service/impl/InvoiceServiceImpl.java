@@ -3,17 +3,17 @@ package com.example.billing.service.impl;
 import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.InvoiceRequest;
 import com.example.billing.dto.response.InvoiceResponse;
-import com.example.billing.entity.Company;
 import com.example.billing.entity.Customer;
 import com.example.billing.entity.Invoice;
 import com.example.billing.entity.InvoiceItem;
 import com.example.billing.entity.Payment;
+import com.example.billing.entity.PaymentTransaction;
 import com.example.billing.entity.Product;
 import com.example.billing.exception.ResourceNotFoundException;
-import com.example.billing.repository.CompanyRepository;
 import com.example.billing.repository.CustomerRepository;
 import com.example.billing.repository.InvoiceRepository;
 import com.example.billing.repository.PaymentRepository;
+import com.example.billing.repository.PaymentTransactionRepository;
 import com.example.billing.repository.ProductRepository;
 import com.example.billing.service.InvoiceService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,10 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,8 +38,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
-    private final CompanyRepository companyRepository;
     private final PaymentRepository paymentRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final CurrentUserProvider currentUserProvider;
 
     private Long companyId() {
@@ -56,14 +59,12 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Transactional
     public InvoiceResponse createInvoice(InvoiceRequest request) {
         Long cid = companyId();
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", request.getCustomerId()));
-        if (customer.getCompanyId() != null && !customer.getCompanyId().equals(cid)) {
-            throw new ResourceNotFoundException("Customer", "id", request.getCustomerId());
-        }
+        Customer customer = resolveCustomer(request.getCustomerId(), cid);
 
         List<InvoiceItem> invoiceItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal totalSgst = BigDecimal.ZERO;
+        BigDecimal totalCgst = BigDecimal.ZERO;
 
         for (InvoiceRequest.InvoiceItemRequest itemRequest : request.getItems()) {
             Product product = productRepository.findById(itemRequest.getProductId())
@@ -73,6 +74,14 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
 
             BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
+            BigDecimal gstRate = product.getGstPercentage() != null
+                    ? product.getGstPercentage()
+                    : BigDecimal.ZERO;
+
+            // Inclusive GST: tax is included in the selling price
+            BigDecimal itemGst = computeIncludedGst(itemTotal, gstRate);
+            BigDecimal itemSgst = itemGst.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+            BigDecimal itemCgst = itemGst.subtract(itemSgst);
 
             InvoiceItem invoiceItem = InvoiceItem.builder()
                     .product(product)
@@ -80,27 +89,19 @@ public class InvoiceServiceImpl implements InvoiceService {
                     .unit("pcs")
                     .price(product.getPrice())
                     .total(itemTotal)
+                    .gstPercentage(gstRate)
                     .companyId(cid)
                     .build();
 
             invoiceItems.add(invoiceItem);
             subtotal = subtotal.add(itemTotal);
+            totalSgst = totalSgst.add(itemSgst);
+            totalCgst = totalCgst.add(itemCgst);
         }
 
-        BigDecimal taxPercent = companyRepository.findById(cid)
-                .map(Company::getTaxPercentage)
-                .filter(t -> t.compareTo(BigDecimal.ZERO) > 0)
-                .orElse(new BigDecimal("3.00"));
-
-        // Inclusive GST: tax is included in product prices
-        // Reverse-calculate: gstAmount = subtotal * taxPercent / (100 + taxPercent)
-        BigDecimal divisor = BigDecimal.valueOf(100).add(taxPercent);
-        BigDecimal gstAmount = subtotal.multiply(taxPercent).divide(divisor, 2, RoundingMode.HALF_UP);
-        BigDecimal sgstAmount = gstAmount.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-        BigDecimal cgstAmount = gstAmount.subtract(sgstAmount);
-
+        BigDecimal gstAmount = totalSgst.add(totalCgst);
         BigDecimal discount = request.getDiscount() != null ? request.getDiscount() : BigDecimal.ZERO;
-        // Total is same as subtotal since GST is already included in prices
+        // Total is same as subtotal minus discount since GST is already included in prices
         BigDecimal totalAmount = subtotal.subtract(discount);
 
         String invoiceNumber = generateInvoiceNumber(cid);
@@ -111,11 +112,11 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .customer(customer)
                 .subtotal(subtotal)
                 .gstAmount(gstAmount)
-                .sgstAmount(sgstAmount)
-                .cgstAmount(cgstAmount)
+                .sgstAmount(totalSgst)
+                .cgstAmount(totalCgst)
                 .discount(discount)
                 .totalAmount(totalAmount)
-                .paymentStatus("pending")
+                .paymentStatus("completed")
                 .items(invoiceItems)
                 .build();
 
@@ -124,7 +125,55 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
 
         Invoice saved = invoiceRepository.save(invoice);
+
+        saveCompletedPayment(saved, request.getPaymentMethod());
+
         return mapToResponse(saved);
+    }
+
+    // Every invoice is immediately COMPLETED with a saved payment record.
+    // No pending state ever exists.
+    private void saveCompletedPayment(Invoice invoice, String paymentMethod) {
+        String gateway = paymentMethod != null && !paymentMethod.isBlank()
+                ? paymentMethod.toLowerCase()
+                : "cash";
+
+        Payment payment = Payment.builder()
+                .invoice(invoice)
+                .gateway(gateway)
+                .amount(invoice.getTotalAmount())
+                .status("completed")
+                .companyId(invoice.getCompanyId())
+                .build();
+        Payment savedPayment = paymentRepository.save(payment);
+
+        PaymentTransaction transaction = PaymentTransaction.builder()
+                .payment(savedPayment)
+                .request("Payment completed via " + gateway)
+                .status("success")
+                .companyId(invoice.getCompanyId())
+                .build();
+        paymentTransactionRepository.save(transaction);
+    }
+
+    private Customer resolveCustomer(Long customerId, Long cid) {
+        if (customerId != null) {
+            Customer customer = customerRepository.findById(customerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
+            if (customer.getCompanyId() != null && !customer.getCompanyId().equals(cid)) {
+                throw new ResourceNotFoundException("Customer", "id", customerId);
+            }
+            return customer;
+        }
+
+        return customerRepository.findByCompanyId(cid).stream()
+                .filter(c -> "Walk-in Customer".equalsIgnoreCase(c.getCustomerName()))
+                .findFirst()
+                .orElseGet(() -> customerRepository.save(Customer.builder()
+                        .customerName("Walk-in Customer")
+                        .phone("9999999999")
+                        .companyId(cid)
+                        .build()));
     }
 
     @Override
@@ -141,32 +190,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     @Transactional
-    public InvoiceResponse markCompleted(Long invoiceId, String gateway) {
-        Invoice invoice = requireInvoice(invoiceId);
-        invoice.setPaymentStatus("completed");
-
-        if (paymentRepository.findByInvoiceInvoiceId(invoiceId).isEmpty()) {
-            Payment cashPayment = Payment.builder()
-                    .invoice(invoice)
-                    .gateway(gateway != null ? gateway : "cash")
-                    .amount(invoice.getTotalAmount())
-                    .status("completed")
-                    .companyId(invoice.getCompanyId())
-                    .build();
-            paymentRepository.save(cashPayment);
-        }
-
-        Invoice saved = invoiceRepository.save(invoice);
-        return mapToResponse(saved);
-    }
-
-    @Override
-    @Transactional
     public void deleteInvoice(Long invoiceId) {
         Invoice invoice = requireInvoice(invoiceId);
-        if ("completed".equalsIgnoreCase(invoice.getPaymentStatus())) {
-            throw new IllegalStateException("Cannot delete a completed invoice");
-        }
         invoiceRepository.delete(invoice);
     }
 
@@ -195,6 +220,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                             .unit(item.getUnit())
                             .price(item.getPrice())
                             .total(item.getTotal())
+                            .gstPercentage(item.getGstPercentage())
                             .build())
                     .collect(Collectors.toList())
                 : new ArrayList<>();
@@ -214,6 +240,52 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .totalAmount(invoice.getTotalAmount())
                 .paymentStatus(invoice.getPaymentStatus())
                 .invoiceDate(invoice.getInvoiceDate())
+                .taxSlabs(buildTaxSlabs(invoice.getItems()))
                 .build();
+    }
+
+    private BigDecimal computeIncludedGst(BigDecimal amount, BigDecimal rate) {
+        if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal divisor = BigDecimal.valueOf(100).add(rate);
+        return amount.multiply(rate).divide(divisor, 2, RoundingMode.HALF_UP);
+    }
+
+    private List<InvoiceResponse.TaxSlab> buildTaxSlabs(List<InvoiceItem> items) {
+        Map<BigDecimal, BigDecimal> sgstByRate = new LinkedHashMap<>();
+        Map<BigDecimal, BigDecimal> cgstByRate = new LinkedHashMap<>();
+        Map<BigDecimal, BigDecimal> gstByRate = new LinkedHashMap<>();
+
+        if (items != null) {
+            for (InvoiceItem item : items) {
+                BigDecimal rate = item.getGstPercentage() != null ? item.getGstPercentage() : BigDecimal.ZERO;
+                BigDecimal itemTotal = item.getTotal() != null ? item.getTotal() : BigDecimal.ZERO;
+
+                BigDecimal itemGst = computeIncludedGst(itemTotal, rate);
+                BigDecimal itemSgst = itemGst.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+                BigDecimal itemCgst = itemGst.subtract(itemSgst);
+
+                sgstByRate.merge(rate, itemSgst, BigDecimal::add);
+                cgstByRate.merge(rate, itemCgst, BigDecimal::add);
+                gstByRate.merge(rate, itemGst, BigDecimal::add);
+            }
+        }
+
+        List<InvoiceResponse.TaxSlab> slabs = new ArrayList<>();
+        for (Map.Entry<BigDecimal, BigDecimal> entry : sgstByRate.entrySet()) {
+            BigDecimal rate = entry.getKey();
+            BigDecimal sgstRate = rate.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+            slabs.add(InvoiceResponse.TaxSlab.builder()
+                    .gstRate(rate)
+                    .sgstRate(sgstRate)
+                    .cgstRate(rate.subtract(sgstRate))
+                    .sgstAmount(entry.getValue())
+                    .cgstAmount(cgstByRate.get(rate))
+                    .gstAmount(gstByRate.get(rate))
+                    .build());
+        }
+        slabs.sort(Comparator.comparing(InvoiceResponse.TaxSlab::getGstRate));
+        return slabs;
     }
 }

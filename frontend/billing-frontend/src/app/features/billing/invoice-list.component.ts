@@ -6,227 +6,533 @@ import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
 import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { InvoiceService } from '../../shared/services/invoice.service';
 import { CompanyService } from '../../shared/services/company.service';
 import { Invoice } from '../../shared/models/models';
 import { Company } from '../../shared/models/company.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { QrDialogComponent } from './qr-dialog.component';
-import { PaymentSuccessDialogComponent } from './payment-success-dialog.component';
 import { ReceiptPrintComponent } from './receipt-print.component';
-import * as QRCode from 'qrcode';
 
 @Component({
   selector: 'app-invoice-list',
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatTableModule, MatPaginatorModule, MatSortModule,
-    MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-    MatDatepickerModule, MatNativeDateModule, MatSnackBarModule, MatDialogModule
+    MatButtonModule, MatIconModule, MatDialogModule
   ],
   template: `
-    <h2>Invoice History</h2>
-
-    <div class="search-bar">
-      <mat-form-field appearance="outline" class="search-field">
-        <mat-label>Invoice #</mat-label>
-        <input matInput [(ngModel)]="searchInvoiceNo" (input)="applyFilter()" placeholder="e.g. INV-2026-001">
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="search-field date-field">
-        <mat-label>From Date</mat-label>
-        <input matInput [matDatepicker]="fromPicker" [(ngModel)]="searchFromDate" (dateChange)="applyFilter()">
-        <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
-        <mat-datepicker #fromPicker></mat-datepicker>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="search-field date-field">
-        <mat-label>To Date</mat-label>
-        <input matInput [matDatepicker]="toPicker" [(ngModel)]="searchToDate" (dateChange)="applyFilter()">
-        <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
-        <mat-datepicker #toPicker></mat-datepicker>
-      </mat-form-field>
-
-      <button mat-stroked-button color="warn" (click)="clearFilters()" class="clear-btn">
-        <mat-icon>clear</mat-icon> Clear
-      </button>
-    </div>
-
-    <div class="table-container">
-      <table mat-table [dataSource]="dataSource" matSort>
-        <ng-container matColumnDef="invoiceNumber">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Invoice # </th>
-          <td mat-cell *matCellDef="let row"> {{ row.invoiceNumber }} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="totalAmount">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Amount </th>
-          <td mat-cell *matCellDef="let row"> ₹{{ row.totalAmount }} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="paymentStatus">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
-          <td mat-cell *matCellDef="let row">
-            <span [class]="'status-' + row.paymentStatus">{{ row.paymentStatus }}</span>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="invoiceDate">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
-          <td mat-cell *matCellDef="let row"> {{ row.invoiceDate | date:'medium' }} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef> Actions </th>
-          <td mat-cell *matCellDef="let row">
-            <button mat-icon-button color="primary" (click)="viewInvoice(row)">
-              <mat-icon>visibility</mat-icon>
-            </button>
-            <button mat-icon-button color="accent" (click)="initiatePayment(row)"
-                    *ngIf="row.paymentStatus?.toLowerCase() === 'pending'">
-              <mat-icon>payment</mat-icon>
-            </button>
-
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
-    </div>
-
-    <div class="mobile-invoice-list" *ngIf="dataSource.filteredData.length > 0">
-      <div class="mobile-invoice-card" *ngFor="let row of displayedInvoices">
-        <div class="mic-top">
-          <span class="mic-number">{{ row.invoiceNumber }}</span>
-          <span [class]="'status-' + row.paymentStatus" class="mic-status">{{ row.paymentStatus }}</span>
-        </div>
-        <div class="mic-rows">
-          <div class="mic-row">
-            <span class="mic-label">Date</span>
-            <span class="mic-value">{{ row.invoiceDate | date:'medium' }}</span>
+    <div class="reports-page">
+      <div class="page-header">
+        <div class="header-left">
+          <div class="header-icon">
+            <mat-icon>receipt_long</mat-icon>
           </div>
-          <div class="mic-row">
-            <span class="mic-label">Amount</span>
-            <span class="mic-value mic-amount">₹{{ row.totalAmount }}</span>
+          <div>
+            <h1>Bill History</h1>
+            <p class="subtitle">Transaction history and bill records</p>
           </div>
         </div>
-        <div class="mic-actions">
-          <button class="mic-btn view" (click)="viewInvoice(row)">
-            <mat-icon>visibility</mat-icon> View
-          </button>
-          <button class="mic-btn print" (click)="printInvoice(row)">
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Invoice #</label>
+            <div class="input-wrap">
+              <mat-icon>search</mat-icon>
+              <input type="text" [(ngModel)]="searchInvoiceNo" (input)="applyFilter()" placeholder="Search invoice...">
+            </div>
+          </div>
+          <div class="filter-group">
+            <label>From</label>
+            <div class="input-wrap">
+              <mat-icon>event</mat-icon>
+              <input type="date" [(ngModel)]="fromDateStr" (change)="onDateFilter()">
+            </div>
+          </div>
+          <div class="filter-group">
+            <label>To</label>
+            <div class="input-wrap">
+              <mat-icon>event</mat-icon>
+              <input type="date" [(ngModel)]="toDateStr" (change)="onDateFilter()">
+            </div>
+          </div>
+          <div class="filter-group filter-actions">
+            <button class="btn-clear" (click)="clearFilters()">
+              <mat-icon>clear_all</mat-icon>
+              Clear All
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Table -->
+      <div class="table-section">
+        <div class="table-header-row">
+          <span class="table-count">{{ dataSource.filteredData.length }} invoices found</span>
+        </div>
+
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="dataSource" matSort class="reports-table">
+            <ng-container matColumnDef="invoiceNumber">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Invoice # </th>
+              <td mat-cell *matCellDef="let row">
+                <span class="invoice-number">{{ row.invoiceNumber }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="totalAmount">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Amount </th>
+              <td mat-cell *matCellDef="let row">
+                <span class="amount-value">&#8377;{{ row.totalAmount | number:'1.2-2' }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="paymentStatus">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+              <td mat-cell *matCellDef="let row">
+                <span class="status-badge completed">
+                  <mat-icon>check_circle</mat-icon> Completed
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="invoiceDate">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
+              <td mat-cell *matCellDef="let row">{{ row.invoiceDate | date:'dd MMM yyyy, h:mm a' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef> Actions </th>
+              <td mat-cell *matCellDef="let row">
+                <button class="action-btn view" (click)="viewInvoice(row)" title="View">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+        <div class="paginator-wrapper">
+          <mat-paginator [pageSizeOptions]="[10, 25, 50]" showFirstLastButtons></mat-paginator>
+        </div>
+      </div>
+
+      <!-- Mobile Cards -->
+      <div class="mobile-invoice-list" *ngIf="dataSource.filteredData.length > 0">
+        <div class="mobile-invoice-card" *ngFor="let row of displayedInvoices">
+          <div class="mic-top">
+            <span class="mic-number">{{ row.invoiceNumber }}</span>
+            <span class="mic-status completed">
+              <mat-icon>check_circle</mat-icon> Completed
+            </span>
+          </div>
+          <div class="mic-rows">
+            <div class="mic-row">
+              <span class="mic-label">Date</span>
+              <span class="mic-value">{{ row.invoiceDate | date:'dd MMM yyyy, h:mm a' }}</span>
+            </div>
+            <div class="mic-row">
+              <span class="mic-label">Amount</span>
+              <span class="mic-value mic-amount">&#8377;{{ row.totalAmount | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <div class="mic-actions">
+            <button class="mic-btn view" (click)="viewInvoice(row)">
+              <mat-icon>visibility</mat-icon> View
+            </button>
+            <button class="mic-btn print" (click)="printInvoice(row)">
+              <mat-icon>print</mat-icon> Print
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Detail -->
+      <div class="invoice-detail" *ngIf="selectedInvoice">
+        <h3>Invoice: {{ selectedInvoice.invoiceNumber }}</h3>
+        <p class="detail-date"><strong>Date:</strong> {{ selectedInvoice.invoiceDate | date:'medium' }}</p>
+
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of selectedInvoice.items">
+              <td>{{ item.productName }}</td>
+              <td>{{ item.quantity }}</td>
+              <td>&#8377;{{ item.price }}</td>
+              <td>&#8377;{{ item.total }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3"><strong>Subtotal</strong></td>
+              <td>&#8377;{{ selectedInvoice.subtotal }}</td>
+            </tr>
+            <tr *ngIf="selectedInvoice.discount > 0">
+              <td colspan="3"><strong>Discount</strong></td>
+              <td>-&#8377;{{ selectedInvoice.discount }}</td>
+            </tr>
+            <tr *ngFor="let slab of selectedInvoice.taxSlabs">
+              <td colspan="3"><strong>SGST ({{ slab.sgstRate }}%)</strong></td>
+              <td>&#8377;{{ slab.sgstAmount }}</td>
+            </tr>
+            <tr *ngFor="let slab of selectedInvoice.taxSlabs">
+              <td colspan="3"><strong>CGST ({{ slab.cgstRate }}%)</strong></td>
+              <td>&#8377;{{ slab.cgstAmount }}</td>
+            </tr>
+            <tr>
+              <td colspan="3"><strong>Total</strong></td>
+              <td><strong>&#8377;{{ selectedInvoice.totalAmount }}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="detail-actions">
+          <button mat-button (click)="selectedInvoice = null">Close</button>
+          <button mat-raised-button color="primary" (click)="reprintInvoice()">
             <mat-icon>print</mat-icon> Print
-          </button>
-          <button class="mic-btn pay" (click)="initiatePayment(row)"
-                  *ngIf="row.paymentStatus?.toLowerCase() === 'pending'">
-            <mat-icon>payment</mat-icon> Pay
           </button>
         </div>
       </div>
+
     </div>
-
-    <mat-paginator [pageSizeOptions]="[10, 25, 50]" showFirstLastButtons></mat-paginator>
-
-    <div class="invoice-detail" *ngIf="selectedInvoice">
-      <h3>Invoice: {{ selectedInvoice.invoiceNumber }}</h3>
-      <p><strong>Date:</strong> {{ selectedInvoice.invoiceDate | date:'medium' }}</p>
-
-      <table class="detail-table">
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Qty</th>
-            <th>Price</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of selectedInvoice.items">
-            <td>{{ item.productName }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>₹{{ item.price }}</td>
-            <td>₹{{ item.total }}</td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="3"><strong>Subtotal</strong></td>
-            <td>₹{{ selectedInvoice.subtotal }}</td>
-          </tr>
-          <tr *ngIf="selectedInvoice.discount > 0">
-            <td colspan="3"><strong>Discount</strong></td>
-            <td>-₹{{ selectedInvoice.discount }}</td>
-          </tr>
-          <tr>
-            <td colspan="3"><strong>SGST (1.5%)</strong></td>
-            <td>₹{{ selectedInvoice.sgstAmount }}</td>
-          </tr>
-          <tr>
-            <td colspan="3"><strong>CGST (1.5%)</strong></td>
-            <td>₹{{ selectedInvoice.cgstAmount }}</td>
-          </tr>
-          <tr>
-            <td colspan="3"><strong>Total</strong></td>
-            <td><strong>₹{{ selectedInvoice.totalAmount }}</strong></td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <button mat-button (click)="selectedInvoice = null">Close</button>
-      <button mat-raised-button color="primary" (click)="reprintInvoice()">
-        <mat-icon>print</mat-icon> Print
-      </button>
-    </div>
-
   `,
   styles: [`
-    h2 { margin-bottom: 20px; }
-    .search-bar {
-      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-      margin-bottom: 20px; background: white; padding: 16px; border-radius: 8px;
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+    :host {
+      font-family: 'Poppins', sans-serif;
+      display: block;
+      background: #F8FAFC;
+      min-height: 100vh;
+      padding: 32px;
     }
-    .search-field { flex: 1 1 160px; min-width: 140px; }
-    .date-field { flex: 1 1 180px; }
-    .clear-btn { height: 56px; }
-    .table-container { overflow: auto; background: white; border-radius: 8px; margin-bottom: 40px; }
-    table { width: 100%; }
-    .status-pending { color: #ff9800; font-weight: 500; text-transform: capitalize; }
-    .status-completed { color: #4caf50; font-weight: 500; text-transform: capitalize; }
-    .status-failed { color: #f44336; font-weight: 500; text-transform: capitalize; }
+
+    .reports-page {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-icon {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #1E40AF, #3B82F6);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-icon mat-icon {
+      font-size: 28px;
+      color: #fff;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1E293B;
+      margin: 0;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #64748B;
+      margin: 2px 0 0;
+    }
+
+    .filter-bar {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+      margin-bottom: 24px;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 160px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #F8FAFC;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 0 12px;
+      height: 42px;
+      transition: all 200ms ease;
+    }
+
+    .input-wrap:focus-within {
+      border-color: #1E40AF;
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.08);
+      background: #fff;
+    }
+
+    .input-wrap mat-icon {
+      font-size: 18px;
+      color: #94A3B8;
+    }
+
+    .input-wrap input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      color: #1E293B;
+      width: 100%;
+    }
+
+    .filter-actions {
+      justify-content: flex-end;
+    }
+
+    .btn-clear {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 42px;
+      padding: 0 20px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      background: #fff;
+      color: #64748B;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 200ms ease;
+    }
+
+    .btn-clear:hover {
+      border-color: #EF4444;
+      color: #EF4444;
+      background: #FEF2F2;
+    }
+
+    .table-section {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+      overflow: hidden;
+    }
+
+    .table-header-row {
+      padding: 20px 24px 12px;
+    }
+
+    .table-count {
+      font-size: 14px;
+      font-weight: 500;
+      color: #64748B;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    .reports-table {
+      width: 100%;
+    }
+
+    .reports-table th {
+      background: #EEF2FF;
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1E40AF;
+      padding: 14px 16px;
+      border-bottom: 1px solid #E5E7EB;
+    }
+
+    .reports-table td {
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      color: #1E293B;
+      padding: 14px 16px;
+      border-bottom: 1px solid #F1F5F9;
+    }
+
+    .reports-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .reports-table tr:hover td {
+      background: #F8FAFC;
+    }
+
+    .invoice-number {
+      font-weight: 600;
+      color: #1E40AF;
+    }
+
+    .amount-value {
+      font-weight: 600;
+      color: #047857;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: capitalize;
+      background: #F1F5F9;
+      color: #475569;
+    }
+
+    .status-badge.completed,
+    .status-badge.paid {
+      background: #DCFCE7;
+      color: #15803D;
+    }
+
+    .status-badge mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+    }
+
+    .status-badge.failed {
+      background: #FEF2F2;
+      color: #991B1B;
+    }
+
+    .action-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 200ms ease;
+      margin-right: 6px;
+    }
+
+    .action-btn:last-child {
+      margin-right: 0;
+    }
+
+    .action-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .action-btn.view {
+      background: #EEF2FF;
+      color: #1D4ED8;
+    }
+
+    .action-btn.view:hover {
+      background: #DBEAFE;
+    }
+
+    .paginator-wrapper {
+      padding: 12px 24px 16px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
     .invoice-detail {
       margin-top: 24px;
-      background: white;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
       padding: 24px;
-      border-radius: 8px;
     }
+
+    .invoice-detail h3 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1E293B;
+    }
+
+    .detail-date {
+      font-size: 13px;
+      color: #64748B;
+      margin: 0 0 12px;
+    }
+
     .detail-table {
       width: 100%;
       border-collapse: collapse;
       margin: 16px 0;
     }
-    .detail-table th, .detail-table td {
+
+    .detail-table th,
+    .detail-table td {
       padding: 10px 16px;
       text-align: left;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid #F1F5F9;
+      font-size: 14px;
     }
-    .detail-table th { background: #f5f5f5; }
-    .detail-table tfoot td { border-top: 2px solid #ddd; }
-    .qr-card {
-      margin-top: 24px; background: white; padding: 24px;
-      border-radius: 8px; border: 2px solid #4caf50;
+
+    .detail-table th {
+      background: #EEF2FF;
+      color: #1E40AF;
+      font-weight: 600;
     }
-    .qr-content { display: flex; flex-direction: column; align-items: center; margin: 16px 0; }
-    .qr-image { background: white; padding: 16px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 16px; }
-    .qr-image img { width: 220px; height: 220px; display: block; }
-    .qr-details { text-align: center; }
-    .qr-details p { margin: 6px 0; font-size: 14px; }
-    .qr-actions { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
+
+    .detail-table tfoot td {
+      border-top: 2px solid #E5E7EB;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
 
     /* ====== MOBILE INVOICE CARDS ====== */
     .mobile-invoice-list {
@@ -260,11 +566,27 @@ import * as QRCode from 'qrcode';
     }
 
     .mic-status {
+      display: inline-flex;
+      align-items: center;
       padding: 4px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 600;
       text-transform: capitalize;
+      background: #DCFCE7;
+      color: #15803D;
+    }
+
+    .mic-status mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+    }
+
+    .mic-status.failed {
+      background: #FEF2F2;
+      color: #991B1B;
     }
 
     .mic-rows {
@@ -297,7 +619,7 @@ import * as QRCode from 'qrcode';
 
     .mic-amount {
       font-weight: 700;
-      color: #2E7D32;
+      color: #047857;
     }
 
     .mic-actions {
@@ -314,7 +636,7 @@ import * as QRCode from 'qrcode';
       height: 44px;
       border: none;
       border-radius: 12px;
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
@@ -345,39 +667,35 @@ import * as QRCode from 'qrcode';
       background: #D1FAE5;
     }
 
-    .mic-btn.pay {
-      background: #FFFBEB;
-      color: #B45309;
+    .mic-btn.view:hover {
+      background: #DBEAFE;
     }
 
-    .mic-btn.pay:hover {
-      background: #FEF3C7;
-    }
-
-    @media (max-width: 767.98px) {
-      h2 {
-        font-size: 24px;
-      }
-      :host {
-        display: block;
-        padding: 16px;
-      }
-      .search-bar {
-        padding: 12px;
-      }
-      .search-field {
-        flex: 1 1 100%;
-        min-width: 100%;
-      }
-      .date-field {
-        flex: 1 1 calc(50% - 4px);
-        min-width: calc(50% - 4px);
-      }
-      .clear-btn {
-        width: 100%;
+    @media (max-width: 768px) {
+      :host { padding: 16px; }
+      .page-header { margin-bottom: 20px; }
+      .header-icon {
+        width: 48px;
         height: 48px;
+        border-radius: 14px;
       }
-      .table-container {
+      .header-icon mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+      h1 { font-size: 24px; }
+      .subtitle { font-size: 13px; }
+      .filter-row { flex-direction: column; }
+      .filter-group { min-width: 100%; }
+      .filter-bar { padding: 16px; }
+      .btn-clear { height: 48px; }
+      .table-header-row { padding: 16px 16px 12px; }
+      .paginator-wrapper {
+        padding: 8px 8px 12px;
+        justify-content: center;
+      }
+      .table-wrapper {
         display: none;
       }
       .mobile-invoice-list {
@@ -401,6 +719,9 @@ import * as QRCode from 'qrcode';
     }
 
     @media (max-width: 479.98px) {
+      .reports-table {
+        min-width: 640px;
+      }
       .mic-actions {
         flex-direction: row;
       }
@@ -424,22 +745,21 @@ export class InvoiceListComponent implements OnInit {
   displayedColumns: string[] = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate', 'actions'];
   dataSource = new MatTableDataSource<Invoice>();
   selectedInvoice: Invoice | null = null;
-  qrCodeDataUrl = '';
-  qrInvoice: Invoice | null = null;
   company: Company | null = null;
   isHotel = false;
 
   searchInvoiceNo = '';
   searchFromDate: Date | null = null;
   searchToDate: Date | null = null;
+  fromDateStr = '';
+  toDateStr = '';
 
   private allInvoices: Invoice[] = [];
 
   constructor(
     private invoiceService: InvoiceService,
     private companyService: CompanyService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -499,10 +819,26 @@ export class InvoiceListComponent implements OnInit {
     this.dataSource.filter = 'trigger';
   }
 
+  onDateFilter(): void {
+    if (this.fromDateStr) {
+      this.searchFromDate = new Date(this.fromDateStr);
+    } else {
+      this.searchFromDate = null;
+    }
+    if (this.toDateStr) {
+      this.searchToDate = new Date(this.toDateStr);
+    } else {
+      this.searchToDate = null;
+    }
+    this.applyFilter();
+  }
+
   clearFilters(): void {
     this.searchInvoiceNo = '';
     this.searchFromDate = null;
     this.searchToDate = null;
+    this.fromDateStr = '';
+    this.toDateStr = '';
     this.dataSource.filter = '';
     this.dataSource.data = [...this.allInvoices];
   }
@@ -515,81 +851,11 @@ export class InvoiceListComponent implements OnInit {
 
   reprintInvoice(): void {
     if (!this.selectedInvoice) return;
-    ReceiptPrintComponent.print(this.selectedInvoice, this.company, this.selectedInvoice.paymentStatus === 'completed' ? 'CASH' : 'PENDING');
+    ReceiptPrintComponent.print(this.selectedInvoice, this.company, 'CASH');
   }
 
   printInvoice(row: Invoice): void {
     this.selectedInvoice = row;
     this.reprintInvoice();
-  }
-
-  initiatePayment(invoice: Invoice): void {
-    this.qrInvoice = invoice;
-    const upiId = this.company?.upiId || 'shop@upi';
-    const shopName = this.company?.companyName || 'Smart Billing Shop';
-
-    const paymentData = [
-      'upi://pay',
-      '?pa=' + encodeURIComponent(upiId),
-      '&pn=' + encodeURIComponent(shopName),
-      '&tn=Invoice ' + invoice.invoiceNumber,
-      '&am=' + invoice.totalAmount,
-      '&cu=INR'
-    ].join('');
-
-    QRCode.toDataURL(paymentData, {
-      width: 256, margin: 2,
-      color: { dark: '#000000', light: '#ffffff' }
-    }).then((url) => {
-      this.qrCodeDataUrl = url;
-      this.openQRPopup();
-    }).catch(() => {
-      this.snackBar.open('Error generating QR code', 'Close', { duration: 3000 });
-    });
-  }
-
-  private completePayment(invoice: Invoice): void {
-    this.invoiceService.markCompleted(invoice.invoiceId, 'upi').subscribe({
-      next: () => {
-        invoice.paymentStatus = 'completed';
-        this.dialog.open(PaymentSuccessDialogComponent, {
-          width: '360px',
-          disableClose: true,
-          data: { invoiceNumber: invoice.invoiceNumber, totalAmount: invoice.totalAmount }
-        });
-        this.autoPrintReceipt(invoice);
-        this.loadInvoices();
-      },
-      error: (err) => {
-        console.error('Failed to update status:', err);
-        this.snackBar.open('Error updating status', 'Close', { duration: 3000 });
-      }
-    });
-  }
-
-  autoPrintReceipt(invoice: any): void {
-    ReceiptPrintComponent.print(invoice, this.company, 'CASH');
-  }
-
-  printQR(): void {
-    const inv = this.qrInvoice;
-    if (!inv) return;
-    ReceiptPrintComponent.print(inv, this.company, 'UPI/QR');
-  }
-
-  openQRPopup(): void {
-    if (!this.qrInvoice) return;
-    const inv = this.qrInvoice;
-    this.dialog.open(QrDialogComponent, {
-      width: '400px',
-      data: {
-        invoiceNumber: inv.invoiceNumber,
-        totalAmount: inv.totalAmount,
-        qrCodeDataUrl: this.qrCodeDataUrl,
-        showMarkCompleted: true,
-        onCompleted: () => this.completePayment(inv),
-        isHotel: this.isHotel
-      }
-    });
   }
 }

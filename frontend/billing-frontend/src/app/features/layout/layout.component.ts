@@ -8,6 +8,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from '../../core/auth/auth.service';
 import { CompanyService } from '../../shared/services/company.service';
 
@@ -22,7 +23,8 @@ import { CompanyService } from '../../shared/services/company.service';
     MatListModule,
     MatIconModule,
     MatButtonModule,
-    MatDividerModule
+    MatDividerModule,
+    MatDialogModule
   ],
   template: `
     <div class="layout-container">
@@ -31,7 +33,9 @@ import { CompanyService } from '../../shared/services/company.service';
                      [mode]="isMobile ? 'over' : 'side'"
                      [opened]="!isMobile || sidenavOpened"
                      (openedChange)="sidenavOpened = $event"
-                     class="sidenav">
+                     class="sidenav"
+                     [class.sidenav-modal-open]="modalOpen"
+                     [attr.inert]="modalOpen || null">
 
           <!-- Logo -->
           <div class="sidebar-logo">
@@ -67,11 +71,6 @@ import { CompanyService } from '../../shared/services/company.service';
                 <span class="menu-indicator"></span>
                 <mat-icon class="menu-icon">mic</mat-icon>
                 <span class="menu-label">Voice Billing</span>
-              </a>
-              <a class="menu-item" routerLink="/invoices" routerLinkActive="active-link">
-                <span class="menu-indicator"></span>
-                <mat-icon class="menu-icon">description</mat-icon>
-                <span class="menu-label">Invoices</span>
               </a>
               <a class="menu-item" routerLink="/reports" routerLinkActive="active-link">
                 <span class="menu-indicator"></span>
@@ -125,6 +124,10 @@ import { CompanyService } from '../../shared/services/company.service';
             <span class="mobile-brand">{{ companyName }}</span>
           </div>
           <router-outlet></router-outlet>
+          <button class="install-fab" *ngIf="canInstall" (click)="installApp()">
+            <mat-icon>download</mat-icon>
+            <span>Install App</span>
+          </button>
         </mat-sidenav-content>
       </mat-sidenav-container>
     </div>
@@ -134,6 +137,38 @@ import { CompanyService } from '../../shared/services/company.service';
       display: flex;
       flex-direction: column;
       height: 100vh;
+    }
+
+    .install-fab {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #1E40AF, #1D4ED8);
+      color: #FFFFFF;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(30, 64, 175, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .install-fab:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(30, 64, 175, 0.45);
+    }
+
+    .install-fab mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
     }
 
     .sidenav-container {
@@ -272,6 +307,34 @@ import { CompanyService } from '../../shared/services/company.service';
     .menu-item.active-link .menu-label {
       color: #1E40AF;
       font-weight: 600;
+    }
+
+    /* Modal-open state: sidebar behaves like a disabled, dimmed background */
+    .sidenav-modal-open {
+      opacity: 0.45;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .sidenav-modal-open .menu-item:hover {
+      background: transparent;
+    }
+
+    .sidenav-modal-open .menu-item.active-link {
+      background: transparent;
+    }
+
+    .sidenav-modal-open .menu-item.active-link .menu-indicator {
+      display: none;
+    }
+
+    .sidenav-modal-open .menu-item.active-link .menu-icon {
+      color: #6B7280;
+    }
+
+    .sidenav-modal-open .menu-item.active-link .menu-label {
+      color: #374151;
+      font-weight: 500;
     }
 
     /* Footer */
@@ -527,6 +590,9 @@ export class LayoutComponent implements OnInit {
   roleLabel = 'Admin';
   isMobile = window.innerWidth < 768;
   sidenavOpened = !this.isMobile;
+  deferredPrompt: any = null;
+  canInstall = false;
+  modalOpen = false;
 
   @HostListener('window:resize', ['$event'])
   onResize(): void {
@@ -540,13 +606,19 @@ export class LayoutComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private companyService: CompanyService
+    private companyService: CompanyService,
+    private dialog: MatDialog
   ) {
     this.currentUser = this.authService.getCurrentUser();
     this.isSuperAdmin = this.authService.isSuperAdmin();
     if (this.isSuperAdmin) {
       this.roleLabel = 'Super Admin';
     }
+
+    // Global modal state: any MatDialog opening dims and disables the sidebar,
+    // restoring it automatically once all dialogs are closed.
+    this.dialog.afterOpened.subscribe(() => this.modalOpen = true);
+    this.dialog.afterAllClosed.subscribe(() => this.modalOpen = false);
 
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
@@ -558,6 +630,18 @@ export class LayoutComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (/Android|iPhone/i.test(navigator.userAgent)) {
+      window.addEventListener('beforeinstallprompt', (e: Event) => {
+        e.preventDefault();
+        this.deferredPrompt = e;
+        this.canInstall = true;
+      });
+      window.addEventListener('appinstalled', () => {
+        this.deferredPrompt = null;
+        this.canInstall = false;
+      });
+    }
+
     if (this.isSuperAdmin) {
       return;
     }
@@ -573,6 +657,14 @@ export class LayoutComponent implements OnInit {
       },
       error: () => {}
     });
+  }
+
+  installApp(): void {
+    if (this.deferredPrompt) {
+      this.deferredPrompt.prompt();
+      this.deferredPrompt = null;
+      this.canInstall = false;
+    }
   }
 
   logout(): void {

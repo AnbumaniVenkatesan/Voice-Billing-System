@@ -40,4 +40,7 @@ public class InvoiceItem {
 
     @Column(name = "total", precision = 10, scale = 2, nullable = false)
     private BigDecimal total;
+
+    @Column(name = "gst_percentage", precision = 5, scale = 2, nullable = false)
+    private BigDecimal gstPercentage;
 }

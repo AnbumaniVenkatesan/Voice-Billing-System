@@ -38,14 +38,17 @@ import { AuthService } from '../../core/auth/auth.service';
           <form (ngSubmit)="onLogin()">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Username</mat-label>
-              <input matInput [(ngModel)]="username" name="username" required>
+              <input matInput [(ngModel)]="username" name="username" required
+                     autocapitalize="none" autocorrect="off" spellcheck="false"
+                     autocomplete="username">
               <mat-icon matPrefix>person</mat-icon>
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Password</mat-label>
               <input matInput [(ngModel)]="password" name="password"
-                     [type]="hidePassword ? 'password' : 'text'" required>
+                     [type]="hidePassword ? 'password' : 'text'" required
+                     autocomplete="current-password">
               <mat-icon matPrefix>lock</mat-icon>
               <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword">
                 <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
@@ -62,6 +65,27 @@ import { AuthService } from '../../core/auth/auth.service';
               <span *ngIf="!loading">Login</span>
             </button>
           </form>
+
+          <div class="reset-username-section">
+            <button type="button" class="reset-username-link" (click)="toggleSuperAdminUsername()"
+                    *ngIf="!showSuperAdminUsername">
+              <mat-icon>help_outline</mat-icon>
+              Forgot username? Show super admin username
+            </button>
+            <div class="reset-username-box" *ngIf="showSuperAdminUsername">
+              <div class="reset-username-header">
+                <mat-icon>admin_panel_settings</mat-icon>
+                <span>Super Admin Username</span>
+                <button type="button" class="reset-username-close" (click)="showSuperAdminUsername = false">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              <p class="reset-username-value" *ngIf="!usernameLoading">
+                {{ superAdminUsername || 'No super admin account found' }}
+              </p>
+              <mat-spinner *ngIf="usernameLoading" diameter="18" class="spinner"></mat-spinner>
+            </div>
+          </div>
         </mat-card-content>
       </mat-card>
 
@@ -170,6 +194,97 @@ import { AuthService } from '../../core/auth/auth.service';
       border: 2px solid #E1BEE7;
     }
 
+    .reset-username-section {
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    .reset-username-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      background: none;
+      color: #5B21B6;
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: background 200ms ease;
+    }
+
+    .reset-username-link:hover {
+      background: #F3E8FF;
+    }
+
+    .reset-username-link mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .reset-username-box {
+      margin-top: 12px;
+      border: 1px solid #E9D5FF;
+      background: #FAF5FF;
+      border-radius: 12px;
+      padding: 12px 14px;
+      text-align: left;
+    }
+
+    .reset-username-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #6B21A8;
+    }
+
+    .reset-username-header mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .reset-username-close {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: none;
+      color: #9333EA;
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 6px;
+    }
+
+    .reset-username-close:hover {
+      background: #F3E8FF;
+    }
+
+    .reset-username-close mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .reset-username-value {
+      margin: 8px 0 0;
+      padding: 8px 12px;
+      background: #FFFFFF;
+      border: 1px solid #E9D5FF;
+      border-radius: 8px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #4C1D95;
+      text-align: center;
+    }
+
     @media (max-width: 767.98px) {
       .login-container {
         padding: 20px 16px;
@@ -203,6 +318,9 @@ export class LoginComponent implements OnInit {
   saCreating = false;
   saErrorMessage = '';
   saSuccessMessage = '';
+  showSuperAdminUsername = false;
+  superAdminUsername = '';
+  usernameLoading = false;
 
   constructor(
     private authService: AuthService,
@@ -225,6 +343,7 @@ export class LoginComponent implements OnInit {
   onLogin(): void {
     this.loading = true;
     this.errorMessage = '';
+    this.username = this.username.trim();
 
     this.authService.login({ username: this.username, password: this.password }).subscribe({
       next: (response) => {
@@ -232,7 +351,34 @@ export class LoginComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err.error?.message || 'Login failed. Please try again.';
+        const status = err?.status;
+        if (status === 401) {
+          this.errorMessage = err.error?.message || 'Invalid username or password';
+        } else if (status === 403) {
+          this.errorMessage = 'You do not have permission to access this system.';
+        } else if (status === 0) {
+          this.errorMessage = 'Cannot reach the server. Check your network connection and try again.';
+        } else if (status && status >= 500) {
+          this.errorMessage = 'Server error. Please try again in a moment.';
+        } else {
+          this.errorMessage = 'Login failed. Please try again.';
+        }
+      }
+    });
+  }
+
+  toggleSuperAdminUsername(): void {
+    this.showSuperAdminUsername = true;
+    if (this.superAdminUsername) return;
+    this.usernameLoading = true;
+    this.authService.getSuperAdminUsername().subscribe({
+      next: (res) => {
+        this.superAdminUsername = res.username || '';
+        this.usernameLoading = false;
+      },
+      error: () => {
+        this.superAdminUsername = '';
+        this.usernameLoading = false;
       }
     });
   }

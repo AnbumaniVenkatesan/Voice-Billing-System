@@ -39,6 +39,14 @@ public class AuthController {
         ));
     }
 
+    @GetMapping("/super-admin-username")
+    public ResponseEntity<Map<String, String>> getSuperAdminUsername() {
+        String username = userRepository.findByRole("SUPER_ADMIN")
+                .map(com.example.billing.entity.User::getUsername)
+                .orElse("");
+        return ResponseEntity.ok(Map.of("username", username));
+    }
+
     @PostMapping("/create-super-admin")
     public ResponseEntity<Map<String, String>> createSuperAdmin(@RequestBody Map<String, String> body) {
         authService.createSuperAdmin(body.get("username"), body.get("password"));

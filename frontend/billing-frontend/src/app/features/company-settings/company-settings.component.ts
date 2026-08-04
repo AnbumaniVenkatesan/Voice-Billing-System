@@ -277,7 +277,7 @@ import { Company } from '../../shared/models/company.model';
           <div class="form-grid">
             <div class="form-group">
               <label>UPI ID</label>
-              <input type="text" [(ngModel)]="company.upiId" placeholder="e.g. abc@paytm" class="form-input">
+              <input type="text" [(ngModel)]="company.upiId" placeholder="e.g. yourname@upi" class="form-input">
             </div>
             <div class="form-group">
               <label>Bank Name</label>
@@ -290,30 +290,6 @@ import { Company } from '../../shared/models/company.model';
             <div class="form-group">
               <label>IFSC Code</label>
               <input type="text" [(ngModel)]="company.ifscCode" placeholder="IFSC code" class="form-input">
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment Gateway -->
-        <div class="section-card">
-          <div class="section-header">
-            <div class="section-icon red">
-              <mat-icon>payment</mat-icon>
-            </div>
-            <div>
-              <h2>Payment Gateway</h2>
-              <p class="section-desc">Configure online payment integration</p>
-            </div>
-          </div>
-          <div class="section-divider"></div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Paytm Merchant ID</label>
-              <input type="text" [(ngModel)]="paytmMid" placeholder="Paytm MID" class="form-input">
-            </div>
-            <div class="form-group">
-              <label>Paytm Merchant Key</label>
-              <input type="text" [(ngModel)]="paytmKey" placeholder="Paytm secret key" class="form-input">
             </div>
           </div>
         </div>
@@ -1008,8 +984,6 @@ export class CompanySettingsComponent implements OnInit {
   toastMessage = '';
   toastType: 'success' | 'error' = 'success';
   nextInvoiceNumber = '';
-  paytmMid = '';
-  paytmKey = '';
 
   constructor(
     private companyService: CompanyService,
@@ -1026,8 +1000,6 @@ export class CompanySettingsComponent implements OnInit {
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.company = data;
-        this.paytmMid = (data as any).paytmMid || '';
-        this.paytmKey = (data as any).paytmKey || '';
         this.nextInvoiceNumber = (data as any).nextInvoiceNumber || '';
       },
       error: () => this.showToast('Failed to load company details', 'error')
@@ -1055,8 +1027,6 @@ export class CompanySettingsComponent implements OnInit {
       this.password = '';
       this.superAdminUsername = '';
       this.superAdminPassword = '';
-      this.paytmMid = '';
-      this.paytmKey = '';
       this.nextInvoiceNumber = '';
       return;
     }
@@ -1064,8 +1034,6 @@ export class CompanySettingsComponent implements OnInit {
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.company = data;
-        this.paytmMid = (data as any).paytmMid || '';
-        this.paytmKey = (data as any).paytmKey || '';
         this.nextInvoiceNumber = (data as any).nextInvoiceNumber || '';
         this.showToast('Form reset to saved values', 'success');
       },
@@ -1123,9 +1091,7 @@ export class CompanySettingsComponent implements OnInit {
       billFooter: this.company.billFooter || '',
       receiptMessage: this.company.receiptMessage || '',
       invoiceHeader: this.company.invoiceHeader || '',
-      invoiceFooter: this.company.invoiceFooter || '',
-      paytmMid: this.paytmMid || '',
-      paytmKey: this.paytmKey || ''
+      invoiceFooter: this.company.invoiceFooter || ''
     };
 
     let save$;

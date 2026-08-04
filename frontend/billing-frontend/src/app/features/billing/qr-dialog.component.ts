@@ -11,9 +11,7 @@ export interface QrDialogData {
   paymentMethod?: string;
   onPaymentReceived?: () => void;
   onChangeToCash?: () => void;
-  onCancel?: () => void;
   onCompleted?: () => void;
-  showMarkCompleted?: boolean;
   isHotel?: boolean;
 }
 
@@ -49,18 +47,13 @@ export interface QrDialogData {
       <mat-dialog-actions align="center" class="qr-actions">
         <button mat-raised-button class="act-received"
                 *ngIf="!paid && (data.onPaymentReceived || data.onCompleted)"
-                (click)="paymentReceived()" [disabled]="cancelled">
+                (click)="paymentReceived()">
           <mat-icon>check_circle</mat-icon> Payment Received
         </button>
         <button mat-raised-button class="act-cash"
                 *ngIf="!paid && data.onChangeToCash"
-                (click)="changeToCash()" [disabled]="cancelled">
+                (click)="changeToCash()">
           <mat-icon>payments</mat-icon> Change to Cash
-        </button>
-        <button mat-raised-button class="act-cancel"
-                *ngIf="!paid && data.onCancel"
-                (click)="cancelPayment()">
-          <mat-icon>close</mat-icon> Cancel
         </button>
         <button mat-stroked-button (click)="closeDialog()">
           <mat-icon>done</mat-icon> Close
@@ -95,9 +88,8 @@ export interface QrDialogData {
       font-size: 12px;
       font-weight: 600;
     }
-    .status-pill.waiting { background: #FFF3E0; color: #E65100; }
-    .status-pill.paid { background: #E8F5E9; color: #2E7D32; }
-    .status-pill.cancelled { background: #FFEBEE; color: #C62828; }
+    .status-pill.completed { background: #DCFCE7; color: #15803D; }
+    .status-pill.paid { background: #DCFCE7; color: #15803D; }
     .qr-frame {
       display: inline-block;
       margin: 16px 0 4px;
@@ -118,15 +110,13 @@ export interface QrDialogData {
     .act-received { background: #2E7D32; }
     .act-received:not(:disabled) { background: #2E7D32; }
     .act-cash { background: #EF6C00; }
-    .act-cancel { background: #C62828; }
-    .act-received mat-icon, .act-cash mat-icon, .act-cancel mat-icon {
+    .act-received mat-icon, .act-cash mat-icon {
       margin-right: 4px;
     }
   `]
 })
 export class QrDialogComponent {
   paid = false;
-  cancelled = false;
   paymentMethod = 'QR';
 
   constructor(
@@ -137,15 +127,11 @@ export class QrDialogComponent {
   }
 
   get statusLabel(): string {
-    if (this.paid) return 'Paid';
-    if (this.cancelled) return 'Cancelled';
-    return 'Waiting for Payment';
+    return this.paid ? 'Paid' : 'Completed';
   }
 
   get statusClass(): string {
-    if (this.paid) return 'paid';
-    if (this.cancelled) return 'cancelled';
-    return 'waiting';
+    return this.paid ? 'paid' : 'completed';
   }
 
   paymentReceived(): void {
@@ -163,18 +149,7 @@ export class QrDialogComponent {
     this.dialogRef.close();
   }
 
-  cancelPayment(): void {
-    if (this.paid) return;
-    this.cancelled = true;
-    if (this.data.onCancel) this.data.onCancel();
-    this.dialogRef.close();
-  }
-
   closeDialog(): void {
-    if (!this.paid && !this.cancelled && this.data.onCancel) {
-      this.cancelPayment();
-    } else {
-      this.dialogRef.close();
-    }
+    this.dialogRef.close();
   }
 }

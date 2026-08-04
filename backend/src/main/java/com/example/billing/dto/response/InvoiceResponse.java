@@ -26,6 +26,7 @@ public class InvoiceResponse {
     private BigDecimal totalAmount;
     private String paymentStatus;
     private LocalDateTime invoiceDate;
+    private List<TaxSlab> taxSlabs;
 
     @Getter
     @Setter
@@ -41,5 +42,21 @@ public class InvoiceResponse {
         private String unit;
         private BigDecimal price;
         private BigDecimal total;
+        private BigDecimal gstPercentage;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TaxSlab {
+
+        private BigDecimal gstRate;
+        private BigDecimal sgstRate;
+        private BigDecimal cgstRate;
+        private BigDecimal sgstAmount;
+        private BigDecimal cgstAmount;
+        private BigDecimal gstAmount;
     }
 }

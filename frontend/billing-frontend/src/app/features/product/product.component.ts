@@ -91,6 +91,15 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
                 </div>
               </div>
 
+              <div class="form-group">
+                <label class="field-label">GST % (included in price)</label>
+                <div class="gst-input-wrapper">
+                  <input class="form-input" type="number" min="0" step="0.01" placeholder="0.00"
+                         [(ngModel)]="formData.gstPercentage" name="gstPercentage">
+                  <span class="gst-suffix">%</span>
+                </div>
+              </div>
+
               <div class="btn-group">
                 <button type="submit" class="btn btn-primary"
                         [disabled]="!formData.productName.trim()">
@@ -120,6 +129,10 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
                 <span class="lbl-long">Update from Excel</span><span class="lbl-short">Update</span>
               </button>
               <input #stockFileInput type="file" accept=".xlsx,.xls" hidden (change)="onStockFileSelected($event)">
+              <button type="button" class="btn btn-excel" (click)="exportExcel()">
+                <mat-icon>download</mat-icon>
+                <span class="lbl-long">Export Excel</span><span class="lbl-short">Export</span>
+              </button>
             </div>
 
             <div class="search-box">
@@ -150,6 +163,13 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
                   <th mat-header-cell *matHeaderCellDef mat-sort-header>Price</th>
                   <td mat-cell *matCellDef="let row">
                     <span class="price-text">₹{{ row.price | number:'1.2-2' }}</span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="gst">
+                  <th mat-header-cell *matHeaderCellDef mat-sort-header>GST %</th>
+                  <td mat-cell *matCellDef="let row">
+                    <span class="gst-badge">{{ row.gstPercentage ?? 0 }}%</span>
                   </td>
                 </ng-container>
 
@@ -188,7 +208,10 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
                   </div>
                 </div>
                 <div class="mpc-bottom">
-                  <span class="price-text">₹{{ p.price | number:'1.2-2' }}</span>
+                  <div class="mpc-price-col">
+                    <span class="price-text">₹{{ p.price | number:'1.2-2' }}</span>
+                    <span class="gst-badge" *ngIf="p.gstPercentage">GST {{ p.gstPercentage }}%</span>
+                  </div>
                   <div class="mpc-actions">
                     <button class="act-btn act-edit" matTooltip="Edit" (click)="editProduct(p)">
                       <mat-icon>edit</mat-icon>
@@ -475,6 +498,37 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
 
     .price-input {
       padding-left: 34px;
+    }
+
+    /* GST Input */
+    .gst-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .gst-suffix {
+      position: absolute;
+      right: 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #6B7280;
+      pointer-events: none;
+    }
+
+    .gst-input-wrapper .form-input {
+      padding-right: 34px;
+    }
+
+    .gst-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: #EEF2FF;
+      color: #1D4ED8;
+      font-size: 13px;
+      font-weight: 600;
     }
 
     /* ====== ALIASES ====== */
@@ -916,6 +970,13 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       color: #1E293B;
     }
 
+    .mpc-price-col {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .mpc-actions {
       display: flex;
       gap: 8px;
@@ -1145,7 +1206,7 @@ export class ProductComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
-  displayedColumns = ['productName', 'price', 'actions'];
+  displayedColumns = ['productName', 'price', 'gst', 'actions'];
   dataSource = new MatTableDataSource<Product>();
   showForm = false;
   editingId: number | null = null;
@@ -1404,5 +1465,22 @@ export class ProductComponent implements OnInit, OnDestroy {
     });
 
     input.value = '';
+  }
+
+  exportExcel(): void {
+    this.productService.exportExcel().subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'products.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.snackBar.open('Products exported to Excel', 'Close', { duration: 3000 });
+      },
+      error: () => {
+        this.snackBar.open('Export failed: Server error', 'Close', { duration: 5000 });
+      }
+    });
   }
 }

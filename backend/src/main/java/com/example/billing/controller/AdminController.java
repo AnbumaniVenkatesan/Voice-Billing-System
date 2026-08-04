@@ -52,6 +52,12 @@ public class AdminController {
         return ResponseEntity.ok(companyService.deactivateCompany(id));
     }
 
+    @DeleteMapping("/companies/{id}")
+    public ResponseEntity<Void> deleteCompany(@PathVariable Long id) {
+        companyService.deleteCompany(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/companies/{id}/reset-password")
     public ResponseEntity<Map<String, String>> resetCompanyPassword(
             @PathVariable Long id,
@@ -102,5 +108,11 @@ public class AdminController {
     public ResponseEntity<Map<String, String>> deactivateUser(@PathVariable Long id) {
         companyService.deactivateUser(id);
         return ResponseEntity.ok(Map.of("message", "User deactivated successfully"));
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        companyService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }

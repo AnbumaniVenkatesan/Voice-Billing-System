@@ -8,8 +8,6 @@ export interface CompanyStats {
   companyId: number;
   products: number;
   invoices: number;
-  pendingPayments: number;
-  completedPayments: number;
   users: number;
 }
 
@@ -54,6 +52,10 @@ export class AdminService {
     return this.http.post<Company>(`${this.apiUrl}/companies/${id}/deactivate`, {});
   }
 
+  deleteCompany(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/companies/${id}`);
+  }
+
   resetCompanyPassword(id: number, newPassword: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/companies/${id}/reset-password`, { newPassword });
   }
@@ -76,5 +78,9 @@ export class AdminService {
 
   deactivateUser(id: number): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/users/${id}/deactivate`, {});
+  }
+
+  deleteUser(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/users/${id}`);
   }
 }
