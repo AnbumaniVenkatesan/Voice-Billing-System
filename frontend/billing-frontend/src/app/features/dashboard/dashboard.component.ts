@@ -58,11 +58,11 @@ import { Company } from '../../shared/models/company.model';
       </div>
 
       <div class="quick-actions-row">
-        <button class="quick-action-btn primary" routerLink="/billing">
+        <button class="quick-action-btn secondary" routerLink="/billing">
           <mat-icon>add_shopping_cart</mat-icon>
           <span>New Bill</span>
         </button>
-        <button class="quick-action-btn secondary" routerLink="/voice-billing">
+        <button class="quick-action-btn primary" routerLink="/voice-billing">
           <mat-icon>mic</mat-icon>
           <span>Voice Bill</span>
         </button>

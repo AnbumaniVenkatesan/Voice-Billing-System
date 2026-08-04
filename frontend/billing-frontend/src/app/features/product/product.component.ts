@@ -51,6 +51,14 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
             <form (ngSubmit)="saveProduct()" class="product-form">
 
               <div class="form-group">
+                <label class="field-label">Product ID</label>
+                <input class="form-input" placeholder="Enter Product ID or name to edit (optional)"
+                       [(ngModel)]="productIdInput" name="productId"
+                       (input)="onProductIdInput()">
+                <span class="field-hint">Leave empty to create a new product, or enter an existing ID / name to auto-load it.</span>
+              </div>
+
+              <div class="form-group">
                 <label class="field-label">Product Name</label>
                 <input class="form-input" placeholder="Enter product name"
                        [(ngModel)]="formData.productName" name="productName"
@@ -453,6 +461,13 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       font-size: 14px;
       font-weight: 600;
       color: #374151;
+    }
+
+    .field-hint {
+      font-size: 12px;
+      font-weight: 400;
+      color: #9CA3AF;
+      margin-top: -4px;
     }
 
     .form-input {
@@ -1211,6 +1226,7 @@ export class ProductComponent implements OnInit, OnDestroy {
   showForm = false;
   editingId: number | null = null;
   newAliasInput = '';
+  productIdInput = '';
   activeFilter = 'all';
   formData: ProductRequest = {
     productId: undefined, productName: '', tamilName: '', price: 0, gstPercentage: 0,
@@ -1267,28 +1283,63 @@ export class ProductComponent implements OnInit, OnDestroy {
 
   onProductNameInput(): void {
     const name = (this.formData.productName || '').trim().toLowerCase();
-    if (!name) {
-      this.editingId = null;
-      return;
-    }
+    if (!name) return;
     const existing = this.dataSource.data.find(p =>
       (p.productName || '').trim().toLowerCase() === name
     );
     if (existing) {
       if (existing.productId !== this.editingId) {
-        this.editingId = existing.productId;
-        this.newAliasInput = '';
-        this.formData.productId = existing.productId;
-        this.formData.tamilName = existing.tamilName;
-        this.formData.price = existing.price;
-        this.formData.gstPercentage = existing.gstPercentage;
-        this.formData.stock = existing.stock;
-        this.formData.status = existing.status;
-        this.formData.aliases = [...new Set((existing.aliases || []).map(a => a.trim()).filter(a => a.length > 0))];
+        this.loadProductIntoForm(existing);
       }
+    } else if (!this.productIdInput.trim()) {
+      this.editingId = null;
+    }
+  }
+
+  onProductIdInput(): void {
+    const raw = this.productIdInput.trim();
+    if (!raw) {
+      this.formData.productId = undefined;
+      this.editingId = null;
+      return;
+    }
+    const id = Number(raw);
+    if (!Number.isInteger(id) || id <= 0) {
+      const name = raw.toLowerCase();
+      const existing = this.dataSource.data.find(p =>
+        (p.productName || '').trim().toLowerCase() === name ||
+        (p.tamilName || '').trim().toLowerCase() === name ||
+        (p.aliases || []).some(a => (a || '').trim().toLowerCase() === name)
+      );
+      if (existing) {
+        this.loadProductIntoForm(existing);
+      } else {
+        this.formData.productId = undefined;
+        this.editingId = null;
+      }
+      return;
+    }
+    this.formData.productId = id;
+    const existing = this.dataSource.data.find(p => p.productId === id);
+    if (existing) {
+      this.loadProductIntoForm(existing);
     } else {
       this.editingId = null;
     }
+  }
+
+  private loadProductIntoForm(product: Product): void {
+    this.editingId = product.productId;
+    this.newAliasInput = '';
+    this.productIdInput = product.productId != null ? String(product.productId) : '';
+    this.formData.productId = product.productId;
+    this.formData.productName = product.productName;
+    this.formData.tamilName = product.tamilName;
+    this.formData.price = product.price;
+    this.formData.gstPercentage = product.gstPercentage;
+    this.formData.stock = product.stock;
+    this.formData.status = product.status;
+    this.formData.aliases = [...new Set((product.aliases || []).map(a => a.trim()).filter(a => a.length > 0))];
   }
 
   applyFilter(event: Event): void {
@@ -1317,6 +1368,7 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.showForm = true;
     this.editingId = null;
     this.newAliasInput = '';
+    this.productIdInput = '';
     this.formData = {
       productId: undefined, productName: '', tamilName: '', price: 0, gstPercentage: 0,
       stock: 0, status: 'active', aliases: []
@@ -1324,20 +1376,12 @@ export class ProductComponent implements OnInit, OnDestroy {
   }
 
   editProduct(product: Product): void {
+    const scrollPos = window.scrollY || 0;
     this.showForm = true;
-    this.editingId = product.productId;
-    this.newAliasInput = '';
-    const unique = [...new Set((product.aliases || []).map(a => a.trim()).filter(a => a.length > 0))];
-    this.formData = {
-      productId: product.productId,
-      productName: product.productName,
-      tamilName: product.tamilName,
-      price: product.price,
-      gstPercentage: product.gstPercentage,
-      stock: product.stock,
-      status: product.status,
-      aliases: [...unique]
-    };
+    this.loadProductIntoForm(product);
+    if (scrollPos > 0) {
+      requestAnimationFrame(() => window.scrollTo(0, scrollPos));
+    }
   }
 
   addAlias(): void {
@@ -1356,8 +1400,13 @@ export class ProductComponent implements OnInit, OnDestroy {
   }
 
   saveProduct(): void {
-    if (this.editingId) {
-      this.productService.updateProduct(this.editingId, this.formData).subscribe({
+    const id = this.formData.productId;
+    const existing = id != null && id > 0
+      ? this.dataSource.data.find(p => p.productId === id)
+      : undefined;
+
+    if (existing && id != null) {
+      this.productService.updateProduct(id, this.formData).subscribe({
         next: () => {
           this.snackBar.open('Product updated successfully', 'Close', { duration: 3000 });
           this.loadProducts();
@@ -1383,7 +1432,12 @@ export class ProductComponent implements OnInit, OnDestroy {
         next: () => {
           this.snackBar.open('Product deleted', 'Close', { duration: 3000 });
           this.loadProducts();
-        }
+        },
+        error: (err) => this.snackBar.open(
+          'Delete failed: ' + (err.error?.message || 'This product has been used in invoices and cannot be deleted'),
+          'Close',
+          { duration: 5000 }
+        )
       });
     }
   }
@@ -1392,6 +1446,7 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.showForm = false;
     this.editingId = null;
     this.newAliasInput = '';
+    this.productIdInput = '';
     this.formData = {
       productId: undefined, productName: '', tamilName: '', price: 0, gstPercentage: 0,
       stock: 0, status: 'active', aliases: []

@@ -267,6 +267,9 @@ declare var webkitSpeechRecognition: any;
               <button class="btn btn-primary" (click)="printReceipt()">
                 <mat-icon>print</mat-icon> Print Receipt
               </button>
+              <button class="btn btn-outline" (click)="changeToQr()">
+                <mat-icon>qr_code_2</mat-icon> Change to QR
+              </button>
               <button class="btn btn-outline" (click)="showCashReceipt = false">
                 <mat-icon>close</mat-icon> Close
               </button>
@@ -2098,6 +2101,13 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.printReceiptFor(inv, 'CASH');
     this.finishBillingSession();
+  }
+
+  changeToQr(): void {
+    const inv = this.createdInvoice;
+    if (!inv) return;
+    this.showCashReceipt = false;
+    this.generateQRCode(inv);
   }
 
   private finishBillingSession(): void {

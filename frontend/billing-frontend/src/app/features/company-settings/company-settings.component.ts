@@ -247,17 +247,41 @@ import { Company } from '../../shared/models/company.model';
               <label>Bill Footer</label>
               <input type="text" [(ngModel)]="company.billFooter" placeholder="e.g. Thank You, Visit Again!" class="form-input">
             </div>
-            <div class="form-group full-span">
-              <label>Receipt Message</label>
-              <input type="text" [(ngModel)]="company.receiptMessage" placeholder="e.g. No Exchange After 3 Days" class="form-input">
+          </div>
+        </div>
+
+        <!-- Payment Gateway -->
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-icon red">
+              <mat-icon>payment</mat-icon>
+            </div>
+            <div>
+              <h2>Payment Gateway</h2>
+              <p class="section-desc">Configure your payment gateway credentials</p>
+            </div>
+          </div>
+          <div class="section-divider"></div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Gateway Provider</label>
+              <select [(ngModel)]="company.paymentGateway" class="form-select">
+                <option value="">Select provider</option>
+                <option value="Paytm">Paytm</option>
+                <option value="Razorpay">Razorpay</option>
+                <option value="Cashfree">Cashfree</option>
+                <option value="PhonePe">PhonePe</option>
+                <option value="Google Pay">Google Pay</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Merchant ID</label>
+              <input type="text" [(ngModel)]="company.gatewayMerchantId" placeholder="Merchant ID" class="form-input">
             </div>
             <div class="form-group full-span">
-              <label>Invoice Header</label>
-              <textarea [(ngModel)]="company.invoiceHeader" rows="2" placeholder="Custom text shown at the top of the receipt (e.g. billing address, contact info)" class="form-input form-textarea"></textarea>
-            </div>
-            <div class="form-group full-span">
-              <label>Invoice Footer</label>
-              <textarea [(ngModel)]="company.invoiceFooter" rows="2" placeholder="Custom text shown at the bottom of the receipt" class="form-input form-textarea"></textarea>
+              <label>Merchant Key</label>
+              <input type="text" [(ngModel)]="company.gatewayMerchantKey" placeholder="Merchant key / secret" class="form-input">
             </div>
           </div>
         </div>
@@ -1085,13 +1109,13 @@ export class CompanySettingsComponent implements OnInit {
       bankName: this.company.bankName || '',
       bankAccountNumber: this.company.bankAccountNumber || '',
       ifscCode: this.company.ifscCode || '',
+      paymentGateway: this.company.paymentGateway || '',
+      gatewayMerchantId: this.company.gatewayMerchantId || '',
+      gatewayMerchantKey: this.company.gatewayMerchantKey || '',
       invoicePrefix: this.company.invoicePrefix,
       currency: this.company.currency || '₹',
       taxPercentage: this.company.taxPercentage || null,
-      billFooter: this.company.billFooter || '',
-      receiptMessage: this.company.receiptMessage || '',
-      invoiceHeader: this.company.invoiceHeader || '',
-      invoiceFooter: this.company.invoiceFooter || ''
+      billFooter: this.company.billFooter || ''
     };
 
     let save$;

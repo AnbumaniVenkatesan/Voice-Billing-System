@@ -39,6 +39,9 @@ public class CompanyRequest {
     private String bankName;
     private String bankAccountNumber;
     private String ifscCode;
+    private String paymentGateway;
+    private String gatewayMerchantId;
+    private String gatewayMerchantKey;
 
     @NotBlank(message = "Invoice prefix is required")
     private String invoicePrefix;

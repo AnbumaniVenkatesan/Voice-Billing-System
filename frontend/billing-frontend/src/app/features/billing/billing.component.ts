@@ -61,10 +61,8 @@ import * as QRCode from 'qrcode';
           </mat-card-header>
           <mat-card-content>
             <div class="cart-item" *ngFor="let item of cart; let i = index">
-              <div class="cart-item-info">
-                <span class="product-name">{{ item.productName }}</span>
-                <span class="product-price">₹{{ item.price }} each</span>
-              </div>
+              <span class="cart-item-name" title="{{ item.productName }}">{{ item.productName }}</span>
+              <span class="cart-item-price">₹{{ item.price }}</span>
               <div class="cart-item-actions">
                 <button mat-icon-button (click)="updateQuantity(i, -1)">
                   <mat-icon>remove</mat-icon>
@@ -141,6 +139,9 @@ import * as QRCode from 'qrcode';
           <button mat-raised-button color="accent" (click)="printCashReceipt()">
             <mat-icon>print</mat-icon> Print
           </button>
+          <button mat-raised-button color="primary" (click)="changeToQr()">
+            <mat-icon>qr_code</mat-icon> Change to QR
+          </button>
           <button mat-stroked-button (click)="dialogRef?.close()">
             <mat-icon>close</mat-icon> Close
           </button>
@@ -174,16 +175,23 @@ import * as QRCode from 'qrcode';
     .price { color: #4caf50; font-weight: 500; }
     .stock { color: #999; font-size: 12px; }
     .cart-item {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
+      gap: 12px;
       padding: 12px 0;
       border-bottom: 1px solid #eee;
     }
-    .product-name { font-weight: 500; }
-    .product-price { color: #666; font-size: 13px; margin-left: 8px; }
+    .cart-item-name {
+      font-weight: 500;
+      color: #333;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cart-item-price { color: #666; font-size: 13px; }
     .cart-item-actions { display: flex; align-items: center; gap: 4px; }
-    .qty { min-width: 30px; text-align: center; font-weight: 500; }
+    .qty { min-width: 24px; text-align: center; font-weight: 500; font-size: 12px; }
     .summary-row {
       display: flex;
       justify-content: space-between;
@@ -233,15 +241,11 @@ import * as QRCode from 'qrcode';
         margin-bottom: 16px;
       }
       .cart-item {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 8px;
       }
       .cart-item-actions {
-        justify-content: space-between;
-      }
-      .product-price {
-        margin-left: 0;
+        justify-content: flex-end;
       }
       .payment-buttons button {
         height: 48px;
@@ -259,7 +263,8 @@ import * as QRCode from 'qrcode';
         gap: 16px;
       }
       .cart-item-actions .qty {
-        min-width: 24px;
+        min-width: 20px;
+        font-size: 11px;
       }
     }
   `]
@@ -282,6 +287,7 @@ export class BillingComponent implements OnInit {
   company: Company | null = null;
   isHotel = false;
   dialogRef: any;
+  switchingToQr = false;
 
   @ViewChild('cashReceiptDialog') cashReceiptDialog!: TemplateRef<any>;
 
@@ -439,6 +445,7 @@ export class BillingComponent implements OnInit {
         totalAmount: inv.totalAmount,
         qrCodeDataUrl: this.qrCodeDataUrl,
         onCompleted: () => this.completeQrPayment(),
+        onChangeToCash: () => this.switchToCash(),
         isHotel: this.isHotel
       }
     });
@@ -476,10 +483,29 @@ export class BillingComponent implements OnInit {
       width: '400px'
     });
     this.dialogRef.afterClosed().subscribe(() => {
+      this.dialogRef = null;
+      if (this.switchingToQr) {
+        this.switchingToQr = false;
+        return;
+      }
       this.showCashReceipt = false;
       this.createdInvoice = null;
-      this.dialogRef = null;
     });
+  }
+
+  private switchToCash(): void {
+    const inv = this.createdInvoice;
+    if (!inv) return;
+    this.showCashReceipt = true;
+    this.openCashReceipt();
+  }
+
+  changeToQr(): void {
+    const inv = this.createdInvoice;
+    if (!inv) return;
+    this.switchingToQr = true;
+    this.dialogRef?.close();
+    this.generateQRCode(inv);
   }
 
   printCashReceipt(): void {

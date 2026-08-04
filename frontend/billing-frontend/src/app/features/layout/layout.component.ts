@@ -320,23 +320,6 @@ import { CompanyService } from '../../shared/services/company.service';
       background: transparent;
     }
 
-    .sidenav-modal-open .menu-item.active-link {
-      background: transparent;
-    }
-
-    .sidenav-modal-open .menu-item.active-link .menu-indicator {
-      display: none;
-    }
-
-    .sidenav-modal-open .menu-item.active-link .menu-icon {
-      color: #6B7280;
-    }
-
-    .sidenav-modal-open .menu-item.active-link .menu-label {
-      color: #374151;
-      font-weight: 500;
-    }
-
     /* Footer */
     .sidebar-footer {
       padding: 16px 16px 20px;

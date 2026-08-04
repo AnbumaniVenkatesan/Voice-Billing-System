@@ -152,7 +152,6 @@ export class ReceiptPrintComponent {
   <div class="info-row"> Bill No     : ${(invoice.invoiceNumber || '').split('-').pop()}</div>
   <div class="info-row"> Date        : ${dateStr}</div>
   <div class="info-row"> Time        : ${timeStr}</div>
-  <div class="info-row"> Payment     : ${paymentMethod.toUpperCase()}</div>
 </div>
 
 <div class="double-line"></div>

@@ -14,6 +14,7 @@ import com.example.billing.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -54,6 +55,13 @@ public class ProductServiceImpl implements ProductService {
         Long cid = companyId();
 
         if (request.getProductId() != null) {
+            Product existing = productRepository.findById(request.getProductId()).orElse(null);
+            if (existing != null) {
+                if (existing.getCompanyId() != null && !existing.getCompanyId().equals(cid)) {
+                    throw new IllegalArgumentException("Product ID " + request.getProductId() + " is already in use by another company");
+                }
+                return updateProduct(request.getProductId(), request);
+            }
             jdbcTemplate.update(
                 "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
                 request.getProductId(), request.getProductName(), request.getTamilName(),
@@ -178,7 +186,12 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public void deleteProduct(Long id) {
         requireProduct(id);
-        productRepository.deleteById(id);
+        try {
+            productRepository.deleteById(id);
+            productRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("Product cannot be deleted because it has been used in invoices.", e);
+        }
     }
 
     @Override

@@ -82,6 +82,15 @@ public class Company {
     @Column(name = "ifsc_code", length = 30)
     private String ifscCode;
 
+    @Column(name = "payment_gateway", length = 100)
+    private String paymentGateway;
+
+    @Column(name = "gateway_merchant_id", length = 100)
+    private String gatewayMerchantId;
+
+    @Column(name = "gateway_merchant_key", length = 255)
+    private String gatewayMerchantKey;
+
     @Column(name = "invoice_prefix", length = 20)
     private String invoicePrefix;
 

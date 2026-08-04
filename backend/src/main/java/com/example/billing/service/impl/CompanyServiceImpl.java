@@ -181,6 +181,9 @@ public class CompanyServiceImpl implements CompanyService {
         company.setBankName(request.getBankName());
         company.setBankAccountNumber(request.getBankAccountNumber());
         company.setIfscCode(request.getIfscCode());
+        company.setPaymentGateway(request.getPaymentGateway());
+        company.setGatewayMerchantId(request.getGatewayMerchantId());
+        company.setGatewayMerchantKey(request.getGatewayMerchantKey());
         company.setInvoicePrefix(request.getInvoicePrefix());
         company.setCurrency(request.getCurrency());
         company.setTaxPercentage(request.getTaxPercentage());
@@ -478,6 +481,9 @@ public class CompanyServiceImpl implements CompanyService {
                 .bankName(request.getBankName())
                 .bankAccountNumber(request.getBankAccountNumber())
                 .ifscCode(request.getIfscCode())
+                .paymentGateway(request.getPaymentGateway())
+                .gatewayMerchantId(request.getGatewayMerchantId())
+                .gatewayMerchantKey(request.getGatewayMerchantKey())
                 .invoicePrefix(request.getInvoicePrefix() != null ? request.getInvoicePrefix() : "INV")
                 .currency(request.getCurrency() != null ? request.getCurrency() : "₹")
                 .taxPercentage(request.getTaxPercentage())
@@ -523,6 +529,9 @@ public class CompanyServiceImpl implements CompanyService {
                 .bankName(company.getBankName())
                 .bankAccountNumber(company.getBankAccountNumber())
                 .ifscCode(company.getIfscCode())
+                .paymentGateway(company.getPaymentGateway())
+                .gatewayMerchantId(company.getGatewayMerchantId())
+                .gatewayMerchantKey(company.getGatewayMerchantKey())
                 .invoicePrefix(company.getInvoicePrefix())
                 .currency(company.getCurrency())
                 .taxPercentage(company.getTaxPercentage())

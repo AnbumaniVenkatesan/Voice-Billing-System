@@ -32,6 +32,9 @@ public class CompanyResponse {
     private String bankName;
     private String bankAccountNumber;
     private String ifscCode;
+    private String paymentGateway;
+    private String gatewayMerchantId;
+    private String gatewayMerchantKey;
     private String invoicePrefix;
     private String currency;
     private BigDecimal taxPercentage;

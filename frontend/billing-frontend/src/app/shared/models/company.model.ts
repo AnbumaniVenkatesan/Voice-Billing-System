@@ -21,6 +21,9 @@ export interface Company {
   bankName: string;
   bankAccountNumber: string;
   ifscCode: string;
+  paymentGateway: string;
+  gatewayMerchantId: string;
+  gatewayMerchantKey: string;
   invoicePrefix: string;
   currency: string;
   taxPercentage: number;
