@@ -11,6 +11,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { CompanyService } from '../../shared/services/company.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { Company } from '../../shared/models/company.model';
+import { ConfirmService } from '../../shared/services/confirm.service';
 
 @Component({
   selector: 'app-company-settings',
@@ -1012,7 +1013,8 @@ export class CompanySettingsComponent implements OnInit {
   constructor(
     private companyService: CompanyService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private confirmService: ConfirmService
   ) {}
 
   ngOnInit(): void {
@@ -1043,25 +1045,31 @@ export class CompanySettingsComponent implements OnInit {
   }
 
   clearForm(): void {
-    if (!confirm('Clear all unsaved changes?')) return;
+    this.confirmService.confirm({
+      title: 'Discard Changes?',
+      message: 'Clear all unsaved changes?',
+      confirmLabel: 'Discard'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    if (this.isFirstTime) {
-      this.company = { shopType: 'Hotel' } as Company;
-      this.username = '';
-      this.password = '';
-      this.superAdminUsername = '';
-      this.superAdminPassword = '';
-      this.nextInvoiceNumber = '';
-      return;
-    }
+      if (this.isFirstTime) {
+        this.company = { shopType: 'Hotel' } as Company;
+        this.username = '';
+        this.password = '';
+        this.superAdminUsername = '';
+        this.superAdminPassword = '';
+        this.nextInvoiceNumber = '';
+        return;
+      }
 
-    this.companyService.getCompany().subscribe({
-      next: (data) => {
-        this.company = data;
-        this.nextInvoiceNumber = (data as any).nextInvoiceNumber || '';
-        this.showToast('Form reset to saved values', 'success');
-      },
-      error: () => this.showToast('Failed to reload company details', 'error')
+      this.companyService.getCompany().subscribe({
+        next: (data) => {
+          this.company = data;
+          this.nextInvoiceNumber = (data as any).nextInvoiceNumber || '';
+          this.showToast('Form reset to saved values', 'success');
+        },
+        error: () => this.showToast('Failed to reload company details', 'error')
+      });
     });
   }
 

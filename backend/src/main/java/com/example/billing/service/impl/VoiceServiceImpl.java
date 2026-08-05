@@ -203,10 +203,54 @@ public class VoiceServiceImpl implements VoiceService {
         if (text == null || text.isBlank()) return text;
 
         String normalized = normalizeTamil(text);
-        String[] words = normalized.split("\\s+");
-        StringBuilder translated = new StringBuilder();
 
-        for (String word : words) {
+        // Phrase-level, longest-first translation. Multi-word DB keys such as a Tamil
+        // name "மசாலா தோசை" (Masala Dosa) must win over their shorter single-word parts
+        // like "தோசை" (Dosa), otherwise the parser only ever sees the base product.
+        List<String> keys = new ArrayList<>(dbLookup.keySet());
+        keys.sort((a, b) -> Integer.compare(b.length(), a.length()));
+
+        StringBuilder translated = new StringBuilder();
+        int i = 0;
+        int n = normalized.length();
+
+        while (i < n) {
+            char c = normalized.charAt(i);
+            if (Character.isWhitespace(c)) {
+                translated.append(c);
+                i++;
+                continue;
+            }
+
+            // Try to match the longest DB key starting at this word boundary
+            String matchedKey = null;
+            for (String key : keys) {
+                if (i + key.length() > n) continue;
+                if (!normalized.regionMatches(true, i, key, 0, key.length())) continue;
+                if (i > 0 && !Character.isWhitespace(normalized.charAt(i - 1))) continue;
+                int end = i + key.length();
+                if (end < n && !Character.isWhitespace(normalized.charAt(end))) continue;
+                matchedKey = key;
+                break;
+            }
+
+            if (matchedKey != null) {
+                Product p = dbLookup.get(matchedKey);
+                if (p != null && p.getProductName() != null) {
+                    translated.append(p.getProductName().toLowerCase());
+                    log.info("[Voice]   Translate \"{}\" → \"{}\" (phrase DB lookup)",
+                            matchedKey, p.getProductName().toLowerCase());
+                    i += matchedKey.length();
+                    continue;
+                }
+            }
+
+            // No phrase match — consume a single word and apply word-level translation
+            int start = i;
+            while (i < n && !Character.isWhitespace(normalized.charAt(i))) {
+                i++;
+            }
+            String word = normalized.substring(start, i);
             String lower = word.toLowerCase();
 
             String english = null;
@@ -235,7 +279,7 @@ public class VoiceServiceImpl implements VoiceService {
                 english = word;
             }
 
-            translated.append(english).append(" ");
+            translated.append(english);
         }
 
         String result = translated.toString().trim();
@@ -587,49 +631,68 @@ public class VoiceServiceImpl implements VoiceService {
         String productName = product.getProductName().toLowerCase();
         String tamilName = product.getTamilName() != null ? product.getTamilName().toLowerCase() : "";
 
-        if (productName.equals(cleaned)) return 100;
+        if (productName.equals(cleaned)) return 1000;
+        if (!tamilName.isEmpty() && tamilName.equals(cleaned)) return 950;
 
-        if (productName.contains(cleaned)) score += 80;
-        if (cleaned.contains(productName)) score += 70;
+        String[] spokenWords = cleaned.split("\\s+");
+        String[] productWords = productName.split("\\s+");
+
+        // Fuzzy word coverage — order independent. Count how many spoken words are
+        // matched by a distinct product-name word.
+        boolean[] used = new boolean[productWords.length];
+        int spokenMatched = 0;
+        for (String sw : spokenWords) {
+            for (int i = 0; i < productWords.length; i++) {
+                if (used[i]) continue;
+                if (fuzzyWordEqual(sw, productWords[i])) {
+                    used[i] = true;
+                    spokenMatched++;
+                    break;
+                }
+            }
+        }
+        int productMatched = 0;
+        for (boolean u : used) {
+            if (u) productMatched++;
+        }
+
+        // Full-phrase coverage — every spoken word maps to a product word. This is the
+        // strongest signal: a longer, more specific product that covers the whole spoken
+        // phrase must beat a short base name that only covers part of it.
+        if (spokenMatched == spokenWords.length && spokenWords.length > 0) {
+            score += 300;
+            score += productMatched * 20;
+            score += Math.min(20, productName.length() / 2);
+        }
+
+        score += spokenMatched * 25;
+
+        if (productName.contains(cleaned)) score += 40;
+        if (cleaned.contains(productName)) score += 10;
 
         if (!tamilName.isEmpty()) {
-            if (tamilName.equals(cleaned)) score += 90;
-            if (tamilName.contains(cleaned) || cleaned.contains(tamilName)) {
-                score += 60;
+            String[] tamilWords = tamilName.split("\\s+");
+            boolean[] tUsed = new boolean[tamilWords.length];
+            int tamilMatched = 0;
+            for (String sw : spokenWords) {
+                for (int i = 0; i < tamilWords.length; i++) {
+                    if (tUsed[i]) continue;
+                    if (fuzzyWordEqual(sw, tamilWords[i])) {
+                        tUsed[i] = true;
+                        tamilMatched++;
+                        break;
+                    }
+                }
             }
+            score += tamilMatched * 20;
         }
 
         // Check DB aliases for this product
         List<ProductAlias> productAliases = productAliasRepository.findByProduct_ProductIdAndCompanyId(product.getProductId(), currentUserProvider.getCompanyId());
         for (ProductAlias pa : productAliases) {
             if (pa.getAliasName() != null && pa.getAliasName().toLowerCase().equals(cleaned)) {
-                score += 85;
+                score += 200;
                 break;
-            }
-        }
-
-        String[] spokenWords = cleaned.split("\\s+");
-        String[] productWords = productName.split("\\s+");
-        for (String sw : spokenWords) {
-            if (sw.length() < 3) continue;
-            for (String pw : productWords) {
-                if (pw.length() < 3) continue;
-                if (sw.contains(pw) || pw.contains(sw)) {
-                    score += 30;
-                }
-            }
-        }
-
-        if (!tamilName.isEmpty()) {
-            String[] tamilWords = tamilName.split("\\s+");
-            for (String sw : spokenWords) {
-                if (sw.length() < 3) continue;
-                for (String tw : tamilWords) {
-                    if (tw.length() < 3) continue;
-                    if (sw.contains(tw) || tw.contains(sw)) {
-                        score += 20;
-                    }
-                }
             }
         }
 
@@ -643,32 +706,43 @@ public class VoiceServiceImpl implements VoiceService {
 
         String cleaned = productWord.trim().toLowerCase();
 
+        // Exact product name and Tamil name matches first (longest name wins ties)
         for (Product product : allActiveProducts) {
             if (product.getProductName() != null
                     && product.getProductName().toLowerCase().equals(cleaned)) {
                 return product;
             }
+        }
+        for (Product product : allActiveProducts) {
             if (product.getTamilName() != null
                     && product.getTamilName().toLowerCase().equals(cleaned)) {
                 return product;
             }
         }
 
-        for (Product product : allActiveProducts) {
-            if (product.getProductName() != null
-                    && product.getProductName().toLowerCase().contains(cleaned)) {
-                return product;
-            }
-            if (product.getTamilName() != null
-                    && product.getTamilName().toLowerCase().contains(cleaned)) {
-                return product;
-            }
-            if (cleaned.contains(product.getProductName().toLowerCase())) {
-                return product;
-            }
-        }
-
-        return null;
+        // Fuzzy fallback: pick the best-scoring product, preferring the LONGEST
+        // (most specific) product name when scores tie. This prevents a shared
+        // base name like "dosa" from winning over "masala dosa".
+        // Only auto-match when the match is reasonably strong (full spoken-word
+        // coverage scores well above this threshold; a lone shared word does not).
+        return allActiveProducts.stream()
+                .filter(p -> "active".equals(p.getStatus()))
+                .map(p -> Map.entry(p, calculateRelevance(cleaned, p)))
+                .filter(e -> e.getValue() >= 100)
+                .sorted((a, b) -> {
+                    int scoreCmp = Integer.compare(b.getValue(), a.getValue());
+                    if (scoreCmp != 0) return scoreCmp;
+                    String an = a.getKey().getProductName();
+                    String bn = b.getKey().getProductName();
+                    int lenCmp = Integer.compare(
+                            bn != null ? bn.length() : 0,
+                            an != null ? an.length() : 0);
+                    if (lenCmp != 0) return lenCmp;
+                    return an != null ? an.compareTo(bn) : 1;
+                })
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
     }
 
     // =========================================================================
@@ -745,8 +819,14 @@ public class VoiceServiceImpl implements VoiceService {
             }
             if (pos >= normalizedText.length()) break;
 
-            // At this position, try ALL candidates (longest first). First match wins.
-            ProductHit bestHit = null;
+            // At this position, find the best EXACT hit (longest first) and the best
+            // FUZZY multi-word hit. A fuzzy hit wins only when it covers MORE words
+            // than the exact hit (e.g. "masal dosa" → "masala dosa" beats "dosa").
+            ProductHit exactHit = null;
+            ProductHit fuzzyHit = null;
+            int exactWordCount = 0;
+            int fuzzyWordCount = 0;
+
             for (Map.Entry<String, String> candidate : candidates) {
                 String normName = candidate.getKey();
                 String origName = candidate.getValue();
@@ -779,8 +859,52 @@ public class VoiceServiceImpl implements VoiceService {
                     }
                 }
 
-                bestHit = new ProductHit(origName, pos, pos + normName.length());
-                break; // First (longest) match wins
+                exactHit = new ProductHit(origName, pos, pos + normName.length());
+                exactWordCount = normName.split(" ").length;
+                break; // First (longest) exact match wins
+            }
+
+            // FUZZY pass — try multi-word candidates with tolerance so a spoken
+            // variant like "masal dosa" still captures the longest product "masala dosa".
+            boolean leftOk = (pos == 0 || normalizedText.charAt(pos - 1) == ' ');
+            if (leftOk) {
+                for (Map.Entry<String, String> candidate : candidates) {
+                    String normName = candidate.getKey();
+                    if (!normName.contains(" ")) continue;
+
+                    String[] candWords = normName.split(" ");
+                    List<String> spokenWords = new ArrayList<>();
+                    int p = pos;
+                    int end = pos;
+                    while (spokenWords.size() < candWords.length && p < normalizedText.length()) {
+                        while (p < normalizedText.length() && normalizedText.charAt(p) == ' ') {
+                            p++;
+                        }
+                        if (p >= normalizedText.length()) break;
+                        int ws = p;
+                        while (p < normalizedText.length() && normalizedText.charAt(p) != ' ') {
+                            p++;
+                        }
+                        spokenWords.add(normalizedText.substring(ws, p));
+                        end = p;
+                    }
+                    if (spokenWords.size() != candWords.length) continue;
+
+                    if (fuzzyWordsMatch(spokenWords, candWords)) {
+                        fuzzyHit = new ProductHit(candidate.getValue(), pos, end);
+                        fuzzyWordCount = candWords.length;
+                        log.info("[Voice] Fuzzy hit: \"{}\" → \"{}\"",
+                                String.join(" ", spokenWords), candidate.getValue());
+                        break;
+                    }
+                }
+            }
+
+            ProductHit bestHit = null;
+            if (fuzzyHit != null && fuzzyWordCount > exactWordCount) {
+                bestHit = fuzzyHit;
+            } else if (exactHit != null) {
+                bestHit = exactHit;
             }
 
             if (bestHit != null) {
@@ -853,6 +977,53 @@ public class VoiceServiceImpl implements VoiceService {
         n = n.replaceAll("parotha", "parotta");
         n = n.replaceAll("chappathi", "chappathi");
         return n;
+    }
+
+    /**
+     * Order-independent fuzzy word-set match used by the parser fallback.
+     * Each spoken word must map to a distinct candidate word via fuzzyWordEqual.
+     */
+    private boolean fuzzyWordsMatch(List<String> spokenWords, String[] candWords) {
+        boolean[] used = new boolean[candWords.length];
+        for (String sw : spokenWords) {
+            boolean found = false;
+            for (int i = 0; i < candWords.length; i++) {
+                if (used[i]) continue;
+                if (fuzzyWordEqual(sw, candWords[i])) {
+                    used[i] = true;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Word similarity used for fuzzy matching: exact equality, or for words of
+     * length >= 4 an edit distance of 1 (covers typos like "chiken" → "chicken",
+     * "masal" → "masala", "biriyani" → "biryani").
+     */
+    private boolean fuzzyWordEqual(String a, String b) {
+        if (a.equals(b)) return true;
+        if (a.length() < 4 || b.length() < 4) return false;
+        return editDistance(a, b) <= 1;
+    }
+
+    private int editDistance(String a, String b) {
+        int[] prev = new int[b.length() + 1];
+        int[] curr = new int[b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) prev[j] = j;
+        for (int i = 1; i <= a.length(); i++) {
+            curr[0] = i;
+            for (int j = 1; j <= b.length(); j++) {
+                int cost = (a.charAt(i - 1) == b.charAt(j - 1)) ? 0 : 1;
+                curr[j] = Math.min(Math.min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            System.arraycopy(curr, 0, prev, 0, b.length() + 1);
+        }
+        return prev[b.length()];
     }
 
     private ParsedItem parseSingleSegmentToItem(String segment) {

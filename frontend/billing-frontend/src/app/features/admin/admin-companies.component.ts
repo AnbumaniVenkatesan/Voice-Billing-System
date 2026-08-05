@@ -7,6 +7,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AdminService, CompanyStats } from '../../shared/services/admin.service';
 import { Company } from '../../shared/models/company.model';
 import { AdminCompanyFormDialogComponent, CompanyFormData } from './admin-company-form-dialog.component';
+import { ConfirmService } from '../../shared/services/confirm.service';
+import { PasswordResetDialogComponent } from '../../shared/components/password-reset-dialog.component';
 
 @Component({
   selector: 'app-admin-companies',
@@ -253,7 +255,8 @@ export class AdminCompaniesComponent implements OnInit {
 
   constructor(
     private adminService: AdminService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private confirmService: ConfirmService
   ) {}
 
   ngOnInit(): void {
@@ -331,37 +334,54 @@ export class AdminCompaniesComponent implements OnInit {
   }
 
   deactivate(company: Company): void {
-    if (!confirm(`Deactivate ${company.companyName}? Its users will not be able to log in.`)) return;
-    this.adminService.deactivateCompany(company.companyId).subscribe({
-      next: () => {
-        this.showToast(`${company.companyName} deactivated`, 'success');
-        this.loadCompanies();
-      },
-      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    this.confirmService.confirm({
+      title: 'Deactivate Company?',
+      message: `Deactivate ${company.companyName}? Its users will not be able to log in.`,
+      confirmLabel: 'Deactivate'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.adminService.deactivateCompany(company.companyId).subscribe({
+        next: () => {
+          this.showToast(`${company.companyName} deactivated`, 'success');
+          this.loadCompanies();
+        },
+        error: (err) => this.showToast(this.errorMessage(err), 'error')
+      });
     });
   }
 
   deleteCompany(company: Company): void {
-    if (!confirm(`Permanently delete ${company.companyName}? This removes ALL its products, customers, invoices and payments. This cannot be undone.`)) return;
-    this.adminService.deleteCompany(company.companyId).subscribe({
-      next: () => {
-        this.showToast(`${company.companyName} deleted`, 'success');
-        this.loadCompanies();
-      },
-      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    this.confirmService.confirm({
+      title: 'Delete Company?',
+      message: `Permanently delete ${company.companyName}? This removes ALL its products, customers, invoices and payments. This cannot be undone.`
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.adminService.deleteCompany(company.companyId).subscribe({
+        next: () => {
+          this.showToast(`${company.companyName} deleted`, 'success');
+          this.loadCompanies();
+        },
+        error: (err) => this.showToast(this.errorMessage(err), 'error')
+      });
     });
   }
 
   resetPassword(company: Company): void {
-    const newPassword = prompt(`Enter new password for admin of ${company.companyName}:`);
-    if (!newPassword) return;
-    if (newPassword.length < 6) {
-      this.showToast('Password must be at least 6 characters', 'error');
-      return;
-    }
-    this.adminService.resetCompanyPassword(company.companyId, newPassword).subscribe({
-      next: () => this.showToast('Admin password reset successfully!', 'success'),
-      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    const dialogRef = this.dialog.open(PasswordResetDialogComponent, {
+      width: '440px',
+      maxWidth: '90vw',
+      panelClass: 'confirm-dialog-panel',
+      backdropClass: 'confirm-dialog-backdrop',
+      enterAnimationDuration: '200ms',
+      exitAnimationDuration: '200ms',
+      data: { target: company.companyName }
+    });
+    dialogRef.afterClosed().subscribe(newPassword => {
+      if (!newPassword) return;
+      this.adminService.resetCompanyPassword(company.companyId, newPassword).subscribe({
+        next: () => this.showToast('Admin password reset successfully!', 'success'),
+        error: (err) => this.showToast(this.errorMessage(err), 'error')
+      });
     });
   }
 

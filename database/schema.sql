@@ -145,7 +145,7 @@ CREATE INDEX idx_invoice_company ON invoice(company_id);
 CREATE TABLE invoice_item (
     invoice_item_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     invoice_id BIGINT NOT NULL,
-    product_id BIGINT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
     quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
     unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -153,7 +153,6 @@ CREATE TABLE invoice_item (
     gst_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     company_id BIGINT NULL,
     FOREIGN KEY (invoice_id) REFERENCES invoice(invoice_id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES product(product_id) ON DELETE RESTRICT,
     FOREIGN KEY (company_id) REFERENCES company(company_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

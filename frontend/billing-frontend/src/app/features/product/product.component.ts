@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
@@ -15,6 +15,8 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ProductService } from '../../shared/services/product.service';
+import { ConfirmService } from '../../shared/services/confirm.service';
+import { ModalStateService } from '../../shared/services/modal-state.service';
 import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } from '../../shared/models/models';
 
 @Component({
@@ -53,7 +55,7 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
               <div class="form-group">
                 <label class="field-label">Product ID</label>
                 <input class="form-input" placeholder="Enter Product ID or name to edit (optional)"
-                       [(ngModel)]="productIdInput" name="productId"
+                       [(ngModel)]="productIdInput" name="productId" #productIdField
                        (input)="onProductIdInput()">
                 <span class="field-hint">Leave empty to create a new product, or enter an existing ID / name to auto-load it.</span>
               </div>
@@ -247,7 +249,7 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
     </div>
 
     <!-- Import result dialog -->
-    <div class="result-overlay" *ngIf="importResult" (click)="importResult = null">
+    <div class="result-overlay" *ngIf="importResult" (click)="closeImportResult()">
       <div class="result-card" (click)="$event.stopPropagation()">
         <h3>Import Result</h3>
         <div class="result-summary">
@@ -289,13 +291,13 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
           </ul>
         </div>
         <div class="result-actions">
-          <button class="btn btn-primary" (click)="importResult = null">Close</button>
+          <button class="btn btn-primary" (click)="closeImportResult()">Close</button>
         </div>
       </div>
     </div>
 
     <!-- Stock update result dialog -->
-    <div class="result-overlay" *ngIf="stockResult" (click)="stockResult = null">
+    <div class="result-overlay" *ngIf="stockResult" (click)="closeStockResult()">
       <div class="result-card" (click)="$event.stopPropagation()">
         <h3>Stock Update Result</h3>
         <div class="result-summary">
@@ -349,7 +351,7 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
           </ul>
         </div>
         <div class="result-actions">
-          <button class="btn btn-primary" (click)="stockResult = null">Close</button>
+          <button class="btn btn-primary" (click)="closeStockResult()">Close</button>
         </div>
       </div>
     </div>
@@ -1220,6 +1222,7 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
 export class ProductComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
+  @ViewChild('productIdField') productIdField!: ElementRef<HTMLInputElement>;
 
   displayedColumns = ['productName', 'price', 'gst', 'actions'];
   dataSource = new MatTableDataSource<Product>();
@@ -1244,7 +1247,9 @@ export class ProductComponent implements OnInit, OnDestroy {
 
   constructor(
     private productService: ProductService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private confirmService: ConfirmService,
+    private modalState: ModalStateService
   ) {}
 
   ngOnInit(): void {
@@ -1255,6 +1260,17 @@ export class ProductComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.clockInterval) clearInterval(this.clockInterval);
+    this.modalState.close();
+  }
+
+  closeImportResult(): void {
+    this.importResult = null;
+    this.modalState.close();
+  }
+
+  closeStockResult(): void {
+    this.stockResult = null;
+    this.modalState.close();
   }
 
   private updateClock(): void {
@@ -1376,12 +1392,10 @@ export class ProductComponent implements OnInit, OnDestroy {
   }
 
   editProduct(product: Product): void {
-    const scrollPos = window.scrollY || 0;
     this.showForm = true;
     this.loadProductIntoForm(product);
-    if (scrollPos > 0) {
-      requestAnimationFrame(() => window.scrollTo(0, scrollPos));
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    requestAnimationFrame(() => this.productIdField?.nativeElement?.focus());
   }
 
   addAlias(): void {
@@ -1427,7 +1441,11 @@ export class ProductComponent implements OnInit, OnDestroy {
   }
 
   deleteProduct(id: number): void {
-    if (confirm('Are you sure you want to delete this product?')) {
+    this.confirmService.confirm({
+      title: 'Delete Product?',
+      message: 'Are you sure you want to delete this product? This action cannot be undone.'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
       this.productService.deleteProduct(id).subscribe({
         next: () => {
           this.snackBar.open('Product deleted', 'Close', { duration: 3000 });
@@ -1439,7 +1457,7 @@ export class ProductComponent implements OnInit, OnDestroy {
           { duration: 5000 }
         )
       });
-    }
+    });
   }
 
   cancelForm(): void {
@@ -1484,6 +1502,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       next: (result) => {
         this.importing = false;
         this.importResult = result;
+        this.modalState.open();
         this.loadProducts();
       },
       error: (err) => {
@@ -1511,6 +1530,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       next: (result) => {
         this.importing = false;
         this.stockResult = result;
+        this.modalState.open();
         this.loadProducts();
       },
       error: (err) => {

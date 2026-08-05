@@ -34,14 +34,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     List<Invoice> findByCompanyId(Long companyId);
 
-    @Query(value = "SELECT p.product_id, p.product_name, " +
+    @Query(value = "SELECT ii.product_name, " +
             "COALESCE(SUM(ii.quantity), 0) as total_qty, " +
             "COALESCE(SUM(ii.total), 0) as total_sales " +
             "FROM invoice i " +
             "JOIN invoice_item ii ON i.invoice_id = ii.invoice_id " +
-            "JOIN product p ON ii.product_id = p.product_id " +
             "WHERE i.invoice_date BETWEEN :start AND :end AND i.company_id = :companyId " +
-            "GROUP BY p.product_id, p.product_name " +
+            "GROUP BY ii.product_name " +
             "ORDER BY total_sales DESC", nativeQuery = true)
     List<Object[]> salesByProduct(LocalDateTime start, LocalDateTime end, Long companyId);
 
@@ -53,15 +52,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             "GROUP BY COALESCE(py.gateway, 'cash')", nativeQuery = true)
     List<Object[]> salesByGateway(LocalDateTime start, LocalDateTime end, Long companyId);
 
-    @Query(value = "SELECT p.product_id, p.product_name, " +
+    @Query(value = "SELECT ii.product_name, " +
             "COALESCE(SUM(py.amount), 0) as payment_total " +
             "FROM payment py " +
             "JOIN invoice i ON py.invoice_id = i.invoice_id " +
             "JOIN invoice_item ii ON i.invoice_id = ii.invoice_id " +
-            "JOIN product p ON ii.product_id = p.product_id " +
             "WHERE i.invoice_date BETWEEN :start AND :end AND i.payment_status = 'completed' " +
             "AND py.gateway = :gateway AND i.company_id = :companyId " +
-            "GROUP BY p.product_id, p.product_name " +
+            "GROUP BY ii.product_name " +
             "ORDER BY payment_total DESC", nativeQuery = true)
     List<Object[]> salesByProductAndGateway(LocalDateTime start, LocalDateTime end, String gateway, Long companyId);
 }

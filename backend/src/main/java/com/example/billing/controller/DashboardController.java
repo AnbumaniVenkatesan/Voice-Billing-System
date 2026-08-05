@@ -142,10 +142,9 @@ public class DashboardController {
         List<Map<String, Object>> productList = new ArrayList<>();
         for (Object[] row : productSales) {
             Map<String, Object> product = new HashMap<>();
-            product.put("productId", ((Number) row[0]).longValue());
-            product.put("productName", row[1]);
-            product.put("totalQty", ((Number) row[2]).doubleValue());
-            product.put("totalSales", row[3]);
+            product.put("productName", row[0]);
+            product.put("totalQty", ((Number) row[1]).doubleValue());
+            product.put("totalSales", row[2]);
             productList.add(product);
         }
         result.put("productSales", productList);
@@ -197,10 +196,9 @@ public class DashboardController {
         List<Map<String, Object>> productList = new ArrayList<>();
         for (Object[] row : productSales) {
             Map<String, Object> product = new HashMap<>();
-            product.put("productId", ((Number) row[0]).longValue());
-            product.put("productName", row[1]);
-            product.put("totalQty", ((Number) row[2]).doubleValue());
-            product.put("totalSales", row[3]);
+            product.put("productName", row[0]);
+            product.put("totalQty", ((Number) row[1]).doubleValue());
+            product.put("totalSales", row[2]);
             productList.add(product);
         }
         result.put("productSales", productList);

@@ -36,7 +36,6 @@ public class InvoiceResponse {
     public static class InvoiceItemResponse {
 
         private Long invoiceItemId;
-        private Long productId;
         private String productName;
         private Double quantity;
         private String unit;

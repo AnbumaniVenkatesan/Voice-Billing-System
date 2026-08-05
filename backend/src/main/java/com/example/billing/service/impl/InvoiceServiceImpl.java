@@ -84,7 +84,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             BigDecimal itemCgst = itemGst.subtract(itemSgst);
 
             InvoiceItem invoiceItem = InvoiceItem.builder()
-                    .product(product)
+                    .productName(product.getProductName())
                     .quantity(itemRequest.getQuantity())
                     .unit("pcs")
                     .price(product.getPrice())
@@ -214,8 +214,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 ? invoice.getItems().stream()
                     .map(item -> InvoiceResponse.InvoiceItemResponse.builder()
                             .invoiceItemId(item.getInvoiceItemId())
-                            .productId(item.getProduct().getProductId())
-                            .productName(item.getProduct().getProductName())
+                            .productName(item.getProductName())
                             .quantity(item.getQuantity())
                             .unit(item.getUnit())
                             .price(item.getPrice())

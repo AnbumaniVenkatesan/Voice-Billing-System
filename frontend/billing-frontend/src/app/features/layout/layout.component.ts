@@ -11,6 +11,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from '../../core/auth/auth.service';
 import { CompanyService } from '../../shared/services/company.service';
+import { ModalStateService } from '../../shared/services/modal-state.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-layout',
@@ -39,8 +41,9 @@ import { CompanyService } from '../../shared/services/company.service';
 
           <!-- Logo -->
           <div class="sidebar-logo">
-            <div class="logo-icon">
-              <mat-icon>point_of_sale</mat-icon>
+            <div class="logo-icon" [class.has-logo]="!!logoUrl">
+              <img *ngIf="logoUrl" [src]="logoUrl" alt="Company Logo" class="logo-img" (error)="onLogoError()">
+              <mat-icon *ngIf="!logoUrl">point_of_sale</mat-icon>
             </div>
             <div class="logo-text">
               <span class="logo-title">{{ companyName }}</span>
@@ -122,6 +125,10 @@ import { CompanyService } from '../../shared/services/company.service';
               <mat-icon>menu</mat-icon>
             </button>
             <span class="mobile-brand">{{ companyName }}</span>
+            <div class="mobile-logo">
+              <img *ngIf="logoUrl" [src]="logoUrl" alt="Company Logo" class="mobile-logo-img" (error)="onLogoError()">
+              <mat-icon *ngIf="!logoUrl" class="mobile-logo-default">point_of_sale</mat-icon>
+            </div>
           </div>
           <router-outlet></router-outlet>
           <button class="install-fab" *ngIf="canInstall" (click)="installApp()">
@@ -217,6 +224,19 @@ import { CompanyService } from '../../shared/services/company.service';
       font-size: 24px;
       width: 24px;
       height: 24px;
+    }
+
+    .logo-icon.has-logo {
+      background: transparent;
+    }
+
+    .logo-img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      flex-shrink: 0;
     }
 
     .logo-text {
@@ -318,6 +338,23 @@ import { CompanyService } from '../../shared/services/company.service';
 
     .sidenav-modal-open .menu-item:hover {
       background: transparent;
+    }
+
+    .sidenav-modal-open .menu-item.active-link {
+      background: transparent;
+    }
+
+    .sidenav-modal-open .menu-item.active-link .menu-indicator {
+      display: none;
+    }
+
+    .sidenav-modal-open .menu-item.active-link .menu-icon {
+      color: #6B7280;
+    }
+
+    .sidenav-modal-open .menu-item.active-link .menu-label {
+      color: #374151;
+      font-weight: 500;
     }
 
     /* Footer */
@@ -458,6 +495,29 @@ import { CompanyService } from '../../shared/services/company.service';
       text-overflow: ellipsis;
     }
 
+    .mobile-logo {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .mobile-logo-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .mobile-logo-default {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+      color: #6B7280;
+    }
+
     /* Tablet: narrower sidebar */
     @media (min-width: 768px) and (max-width: 1023.98px) {
       .sidenav {
@@ -568,6 +628,8 @@ import { CompanyService } from '../../shared/services/company.service';
 export class LayoutComponent implements OnInit {
   currentUser: any;
   companyName = 'Smart Billing System';
+  companyLogo = '';
+  private logoLoadFailed = false;
   showProducts = false;
   isSuperAdmin = false;
   roleLabel = 'Admin';
@@ -576,6 +638,8 @@ export class LayoutComponent implements OnInit {
   deferredPrompt: any = null;
   canInstall = false;
   modalOpen = false;
+  private dialogOpen = false;
+  private customModalOpen = false;
 
   @HostListener('window:resize', ['$event'])
   onResize(): void {
@@ -590,7 +654,8 @@ export class LayoutComponent implements OnInit {
     private authService: AuthService,
     private router: Router,
     private companyService: CompanyService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private modalState: ModalStateService
   ) {
     this.currentUser = this.authService.getCurrentUser();
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -599,9 +664,21 @@ export class LayoutComponent implements OnInit {
     }
 
     // Global modal state: any MatDialog opening dims and disables the sidebar,
-    // restoring it automatically once all dialogs are closed.
-    this.dialog.afterOpened.subscribe(() => this.modalOpen = true);
-    this.dialog.afterAllClosed.subscribe(() => this.modalOpen = false);
+    // restoring it automatically once all dialogs are closed. Custom fullscreen
+    // overlays (reports view, product results) drive the same state through
+    // ModalStateService.
+    this.dialog.afterOpened.subscribe(() => {
+      this.dialogOpen = true;
+      this.syncModalOpen();
+    });
+    this.dialog.afterAllClosed.subscribe(() => {
+      this.dialogOpen = false;
+      this.syncModalOpen();
+    });
+    this.modalState.modalOpen$.subscribe(open => {
+      this.customModalOpen = open;
+      this.syncModalOpen();
+    });
 
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
@@ -610,6 +687,16 @@ export class LayoutComponent implements OnInit {
           this.sidenavOpened = false;
         }
       });
+  }
+
+  get logoUrl(): string {
+    if (this.logoLoadFailed || !this.companyLogo) return '';
+    if (this.companyLogo.startsWith('http')) return this.companyLogo;
+    return environment.apiUrl + this.companyLogo;
+  }
+
+  onLogoError(): void {
+    this.logoLoadFailed = true;
   }
 
   ngOnInit(): void {
@@ -628,6 +715,10 @@ export class LayoutComponent implements OnInit {
     if (this.isSuperAdmin) {
       return;
     }
+    this.companyService.company$.subscribe(company => {
+      this.logoLoadFailed = false;
+      this.companyLogo = company?.logo || '';
+    });
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.companyName = data.companyName || 'Smart Billing System';
@@ -648,6 +739,10 @@ export class LayoutComponent implements OnInit {
       this.deferredPrompt = null;
       this.canInstall = false;
     }
+  }
+
+  private syncModalOpen(): void {
+    this.modalOpen = this.dialogOpen || this.customModalOpen;
   }
 
   logout(): void {

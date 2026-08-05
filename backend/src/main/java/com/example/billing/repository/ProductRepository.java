@@ -18,12 +18,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             "COALESCE(s.total_sales, 0) as total_sales " +
             "FROM product p " +
             "LEFT JOIN ( " +
-            "  SELECT ii.product_id, SUM(ii.quantity) as total_qty, SUM(ii.total) as total_sales " +
+            "  SELECT ii.product_name, SUM(ii.quantity) as total_qty, SUM(ii.total) as total_sales " +
             "  FROM invoice_item ii " +
             "  INNER JOIN invoice i ON ii.invoice_id = i.invoice_id " +
             "  WHERE i.invoice_date BETWEEN :start AND :end AND i.company_id = :companyId " +
-            "  GROUP BY ii.product_id " +
-            ") s ON p.product_id = s.product_id " +
+            "  GROUP BY ii.product_name " +
+            ") s ON p.product_name = s.product_name " +
             "WHERE p.status = 'active' AND p.company_id = :companyId " +
             "ORDER BY total_sales DESC", nativeQuery = true)
     List<Object[]> findProductSales(LocalDateTime start, LocalDateTime end, Long companyId);

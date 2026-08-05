@@ -13,26 +13,17 @@ export class ReceiptPrintComponent {
 
   static print(invoice: Invoice, company: Company | null, paymentMethod: string): void {
     const line = '--------------------------------------';
-    const doubleLine = '======================================';
 
     const companyName = company?.companyName || 'Smart Billing';
     const gst = company?.gstNumber || '';
     const phone = company?.phoneNumber || '';
     const email = company?.email || '';
-    const website = company?.website || '';
     const addr1 = company?.addressLine1 || '';
     const addr2 = company?.addressLine2 || '';
     const city = company?.city || '';
-    const district = company?.district || '';
-    const state = company?.state || '';
     const pincode = company?.pincode || '';
-    const footer = company?.billFooter || 'Thank You!';
-    const receiptMsg = company?.receiptMessage || 'Visit Again';
-    const invHeader = company?.invoiceHeader || '';
-    const invFooter = company?.invoiceFooter || '';
-    const invPrefix = company?.invoicePrefix || 'INV';
 
-    const addressParts = [addr1, addr2, [city, district].filter(Boolean).join(' - '), [state, pincode].filter(Boolean).join(' - ')].filter(Boolean);
+    const addressParts = [addr1, addr2, [city, pincode].filter(Boolean).join(' - ')].filter(Boolean);
     const addressLines = addressParts.length > 0 ? addressParts.join('\n      ') : '';
 
     let invDate = new Date();
@@ -94,6 +85,8 @@ export class ReceiptPrintComponent {
         formatSummaryRow('CGST (' + halfRate + '%)', invoice.cgstAmount || 0);
     }
 
+    const includedGstRow = ' ' + formatSummaryRow('Included GST', invoice.gstAmount || 0);
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -119,10 +112,10 @@ export class ReceiptPrintComponent {
   }
   .center { text-align: center; }
   .bold { font-weight: bold; }
-  .double-line { border-top: 2px solid #000; margin: 4px 0; }
+  .dash-line { font-size: 12px; white-space: pre; line-height: 1.4; }
   .shop-name { font-size: 16px; font-weight: bold; letter-spacing: 1px; }
   .shop-info { font-size: 11px; line-height: 1.3; margin-top: 2px; }
-  .invoice-title { font-size: 13px; font-weight: bold; letter-spacing: 2px; margin: 4px 0; }
+  .invoice-title { font-size: 13px; font-weight: bold; letter-spacing: 2px; margin: 1px 0; }
   .info-row { font-size: 12px; line-height: 1.6; white-space: pre; }
   .table-header { font-weight: bold; font-size: 12px; white-space: pre; }
   .item-row { font-size: 12px; line-height: 1.5; white-space: pre; }
@@ -137,16 +130,14 @@ export class ReceiptPrintComponent {
 <div class="center">
   <div class="shop-name">${companyName.toUpperCase()}</div>
   ${addressLines ? '<div class="shop-info">' + addressLines + '</div>' : ''}
-  ${phone ? '<div class="shop-info">Ph: ' + phone + '</div>' : ''}
-  ${email ? '<div class="shop-info">' + email + '</div>' : ''}
-  ${gst ? '<div class="shop-info">GSTIN: ' + gst + '</div>' : ''}
-  ${website ? '<div class="shop-info">' + website + '</div>' : ''}
-  ${invHeader ? '<div class="shop-info" style="margin-top:4px;white-space:pre-wrap;">' + invHeader + '</div>' : ''}
+  ${phone ? '<div class="shop-info">Phone : ' + phone + '</div>' : ''}
+  ${gst ? '<div class="shop-info">GSTIN : ' + gst + '</div>' : ''}
+  ${email ? '<div class="shop-info">Email : ' + email + '</div>' : ''}
 </div>
 
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 <div class="center invoice-title">BILL</div>
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 
 <div style="margin: 6px 0;">
   <div class="info-row"> Bill No     : ${(invoice.invoiceNumber || '').split('-').pop()}</div>
@@ -154,27 +145,26 @@ export class ReceiptPrintComponent {
   <div class="info-row"> Time        : ${timeStr}</div>
 </div>
 
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 <div class="table-header"> ${'Item'.padEnd(COL_ITEM)} ${'Qty'.padStart(COL_QTY)} ${'Price'.padStart(COL_PRICE)} ${'Amount'.padStart(COL_AMT)}</div>
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 
 <div class="item-row">${items}</div>
 
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 <div class="summary-row"> ${formatSummaryRow('Subtotal', invoice.subtotal || 0)}</div>
-<div class="summary-row" style="font-size: 10px; color: #555;"> Included GST</div>
+<div class="summary-row" style="font-size: 10px; color: #555;">${includedGstRow}</div>
 <div class="summary-row">${gstBreakdown}${discountRow}
 </div>
 
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 <div class="summary-row"> ${formatSummaryRow('GRAND TOTAL', invoice.totalAmount || 0)}</div>
-<div class="double-line"></div>
+<div class="dash-line">${line}</div>
 
 <div class="center footer">
-  <div class="footer-text" style="font-size: 10px;">* Prices are inclusive of GST</div>
-  <div class="footer-text bold" style="margin-top:4px;">${footer}</div>
-  <div class="footer-text" style="margin-top:2px;">${receiptMsg}</div>
-  ${invFooter ? '<div class="footer-text" style="margin-top:6px;white-space:pre-wrap;">' + invFooter + '</div>' : ''}
+  <div class="footer-text" style="font-size: 10px;">* Prices are inclusive of GST *</div>
+  <div class="footer-text bold" style="margin-top:4px;">Thank You!!!</div>
+  <div class="footer-text" style="margin-top:2px;">Visit Again</div>
 </div>
 
 </body>

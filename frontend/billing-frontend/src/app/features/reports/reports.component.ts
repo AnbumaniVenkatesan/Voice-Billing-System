@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +9,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { InvoiceService } from '../../shared/services/invoice.service';
 import { CompanyService } from '../../shared/services/company.service';
+import { ModalStateService } from '../../shared/services/modal-state.service';
 import { Invoice } from '../../shared/models/models';
 
 @Component({
@@ -131,7 +132,7 @@ import { Invoice } from '../../shared/models/models';
     </div>
 
     <!-- View Report Dialog -->
-    <div class="view-overlay" *ngIf="viewInvoice" (click)="viewInvoice = null">
+    <div class="view-overlay" *ngIf="viewInvoice" (click)="closeView()">
       <div class="view-card" (click)="$event.stopPropagation()">
         <div class="view-header">
           <div>
@@ -143,7 +144,7 @@ import { Invoice } from '../../shared/models/models';
               </span>
             </p>
           </div>
-          <button class="btn-view-close" matTooltip="Close" (click)="viewInvoice = null">
+          <button class="btn-view-close" matTooltip="Close" (click)="closeView()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -171,22 +172,32 @@ import { Invoice } from '../../shared/models/models';
               <span>Subtotal</span>
               <span>₹{{ viewInvoice.subtotal | number:'1.2-2' }}</span>
             </div>
-            <div class="view-sum-row" *ngFor="let slab of viewInvoice.taxSlabs">
-              <span>GST ({{ slab.gstRate }}%)</span>
-              <span>₹{{ slab.gstAmount | number:'1.2-2' }}</span>
+            <div class="view-sum-group">
+              <div class="view-sum-row gst-title">
+                <span>Included GST</span>
+                <span>₹{{ viewInvoice.gstAmount | number:'1.2-2' }}</span>
+              </div>
+              <div class="view-sum-row gst-breakdown">
+                <span>SGST</span>
+                <span>₹{{ viewInvoice.sgstAmount | number:'1.2-2' }}</span>
+              </div>
+              <div class="view-sum-row gst-breakdown">
+                <span>CGST</span>
+                <span>₹{{ viewInvoice.cgstAmount | number:'1.2-2' }}</span>
+              </div>
             </div>
             <div class="view-sum-row" *ngIf="viewInvoice.discount > 0">
               <span>Discount</span>
               <span>-₹{{ viewInvoice.discount | number:'1.2-2' }}</span>
             </div>
             <div class="view-sum-row total">
-              <span>Total</span>
+              <span>Grand Total</span>
               <span>₹{{ viewInvoice.totalAmount | number:'1.2-2' }}</span>
             </div>
           </div>
         </div>
         <div class="view-actions">
-          <button class="btn-close" (click)="viewInvoice = null">
+          <button class="btn-close" (click)="closeView()">
             <mat-icon>close</mat-icon> Close
           </button>
         </div>
@@ -545,6 +556,25 @@ import { Invoice } from '../../shared/models/models';
       color: #334155;
     }
 
+    .view-sum-group {
+      border-left: 2px solid #E5E7EB;
+      margin: 2px 0 2px 10px;
+      padding-left: 14px;
+    }
+
+    .view-sum-group .view-sum-row {
+      padding: 4px 0;
+    }
+
+    .view-sum-row.gst-title {
+      font-weight: 600;
+    }
+
+    .view-sum-row.gst-breakdown {
+      font-size: 13px;
+      color: #64748B;
+    }
+
     .view-sum-row.total {
       border-top: 1px solid #E5E7EB;
       margin-top: 6px;
@@ -697,7 +727,7 @@ import { Invoice } from '../../shared/models/models';
     }
   `]
 })
-export class ReportsComponent implements OnInit {
+export class ReportsComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   dataSource = new MatTableDataSource<Invoice>();
@@ -717,14 +747,15 @@ export class ReportsComponent implements OnInit {
 
   constructor(
     private invoiceService: InvoiceService,
-    private companyService: CompanyService
+    private companyService: CompanyService,
+    private modalState: ModalStateService
   ) {}
 
   ngOnInit(): void {
     this.invoiceService.getAllInvoices().subscribe(invoices => {
-      this.allInvoices = invoices;
-      this.filteredInvoices = invoices;
-      this.dataSource.data = invoices;
+      this.allInvoices = this.sortInvoicesDesc(invoices);
+      this.filteredInvoices = [...this.allInvoices];
+      this.dataSource.data = [...this.allInvoices];
       this.dataSource.paginator = this.paginator;
       this.dataSource.filterPredicate = (_invoice: Invoice, _filter: string) => {
         return this.matchInvoice(_invoice);
@@ -736,6 +767,17 @@ export class ReportsComponent implements OnInit {
         this.recentColumns = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate', 'actions'];
       },
       error: () => {}
+    });
+  }
+
+  private sortInvoicesDesc(invoices: Invoice[]): Invoice[] {
+    return [...invoices].sort((a, b) => {
+      const aTime = a.invoiceDate ? new Date(a.invoiceDate).getTime() : 0;
+      const bTime = b.invoiceDate ? new Date(b.invoiceDate).getTime() : 0;
+      if (bTime !== aTime) {
+        return bTime - aTime;
+      }
+      return (b.invoiceId ?? 0) - (a.invoiceId ?? 0);
     });
   }
 
@@ -792,6 +834,16 @@ export class ReportsComponent implements OnInit {
 
   viewDetails(invoice: Invoice): void {
     this.viewInvoice = invoice;
+    this.modalState.open();
+  }
+
+  closeView(): void {
+    this.viewInvoice = null;
+    this.modalState.close();
+  }
+
+  ngOnDestroy(): void {
+    this.closeView();
   }
 
   exportCsv(): void {

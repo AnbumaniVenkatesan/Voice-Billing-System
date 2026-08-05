@@ -48,7 +48,6 @@ export interface ProductRequest {
 
 export interface InvoiceItem {
   invoiceItemId: number;
-  productId: number;
   productName: string;
   quantity: number;
   unit: string;

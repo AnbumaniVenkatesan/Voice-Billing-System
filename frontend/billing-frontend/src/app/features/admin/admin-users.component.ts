@@ -9,6 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { AdminService, AdminUser } from '../../shared/services/admin.service';
 import { Company } from '../../shared/models/company.model';
+import { ConfirmService } from '../../shared/services/confirm.service';
+import { PasswordResetDialogComponent } from '../../shared/components/password-reset-dialog.component';
 
 @Component({
   selector: 'app-admin-users',
@@ -250,7 +252,8 @@ export class AdminUsersComponent implements OnInit {
 
   constructor(
     private adminService: AdminService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private confirmService: ConfirmService
   ) {}
 
   ngOnInit(): void {
@@ -321,37 +324,54 @@ export class AdminUsersComponent implements OnInit {
   }
 
   resetPassword(user: AdminUser): void {
-    const newPassword = prompt(`Enter new password for user "${user.username}":`);
-    if (!newPassword) return;
-    if (newPassword.length < 6) {
-      this.showToast('Password must be at least 6 characters', 'error');
-      return;
-    }
-    this.adminService.resetUserPassword(user.userId, newPassword).subscribe({
-      next: () => this.showToast('Password reset successfully!', 'success'),
-      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    const dialogRef = this.dialog.open(PasswordResetDialogComponent, {
+      width: '440px',
+      maxWidth: '90vw',
+      panelClass: 'confirm-dialog-panel',
+      backdropClass: 'confirm-dialog-backdrop',
+      enterAnimationDuration: '200ms',
+      exitAnimationDuration: '200ms',
+      data: { target: `user "${user.username}"` }
+    });
+    dialogRef.afterClosed().subscribe(newPassword => {
+      if (!newPassword) return;
+      this.adminService.resetUserPassword(user.userId, newPassword).subscribe({
+        next: () => this.showToast('Password reset successfully!', 'success'),
+        error: (err) => this.showToast(this.errorMessage(err), 'error')
+      });
     });
   }
 
   deactivate(user: AdminUser): void {
-    if (!confirm(`Deactivate user "${user.username}"? They will not be able to log in.`)) return;
-    this.adminService.deactivateUser(user.userId).subscribe({
-      next: () => {
-        this.showToast('User deactivated', 'success');
-        this.loadUsers();
-      },
-      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    this.confirmService.confirm({
+      title: 'Deactivate User?',
+      message: `Deactivate user "${user.username}"? They will not be able to log in.`,
+      confirmLabel: 'Deactivate'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.adminService.deactivateUser(user.userId).subscribe({
+        next: () => {
+          this.showToast('User deactivated', 'success');
+          this.loadUsers();
+        },
+        error: (err) => this.showToast(this.errorMessage(err), 'error')
+      });
     });
   }
 
   deleteUser(user: AdminUser): void {
-    if (!confirm(`Permanently delete user "${user.username}"? This cannot be undone.`)) return;
-    this.adminService.deleteUser(user.userId).subscribe({
-      next: () => {
-        this.showToast('User deleted', 'success');
-        this.loadUsers();
-      },
-      error: (err) => this.showToast(this.errorMessage(err), 'error')
+    this.confirmService.confirm({
+      title: 'Delete User?',
+      message: `Permanently delete user "${user.username}"? This cannot be undone.`
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.adminService.deleteUser(user.userId).subscribe({
+        next: () => {
+          this.showToast('User deleted', 'success');
+          this.loadUsers();
+        },
+        error: (err) => this.showToast(this.errorMessage(err), 'error')
+      });
     });
   }
 
