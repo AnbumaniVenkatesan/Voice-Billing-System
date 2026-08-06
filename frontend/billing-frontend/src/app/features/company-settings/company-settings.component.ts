@@ -12,6 +12,7 @@ import { CompanyService } from '../../shared/services/company.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { Company } from '../../shared/models/company.model';
 import { ConfirmService } from '../../shared/services/confirm.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-company-settings',
@@ -1041,7 +1042,7 @@ export class CompanySettingsComponent implements OnInit {
   getLogoUrl(): string {
     if (!this.company.logo) return '';
     if (this.company.logo.startsWith('http')) return this.company.logo;
-    return 'http://localhost:8080' + this.company.logo;
+    return environment.apiUrl + this.company.logo;
   }
 
   clearForm(): void {

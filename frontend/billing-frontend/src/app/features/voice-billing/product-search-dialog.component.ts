@@ -224,7 +224,7 @@ export interface ProductSearchResult {
       height: 36px;
       border: none;
       background: #F1F5F9;
-      border-radius: 10px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;

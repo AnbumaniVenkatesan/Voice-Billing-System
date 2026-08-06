@@ -163,8 +163,10 @@ export class ReceiptPrintComponent {
 
 <div class="center footer">
   <div class="footer-text" style="font-size: 10px;">* Prices are inclusive of GST *</div>
-  <div class="footer-text bold" style="margin-top:4px;">Thank You!!!</div>
-  <div class="footer-text" style="margin-top:2px;">Visit Again</div>
+  ${company?.billFooter
+    ? '<div class="footer-text bold" style="margin-top:4px; white-space: pre-line;">' + company.billFooter + '</div>'
+    : '<div class="footer-text bold" style="margin-top:4px;">Thank You!!!</div>' +
+      '<div class="footer-text" style="margin-top:2px;">Visit Again</div>'}
 </div>
 
 </body>

@@ -9,6 +9,7 @@ import { Company } from '../../shared/models/company.model';
 import { AdminCompanyFormDialogComponent, CompanyFormData } from './admin-company-form-dialog.component';
 import { ConfirmService } from '../../shared/services/confirm.service';
 import { PasswordResetDialogComponent } from '../../shared/components/password-reset-dialog.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-admin-companies',
@@ -280,7 +281,7 @@ export class AdminCompaniesComponent implements OnInit {
   getLogoUrl(company: Company): string {
     if (!company.logo) return '';
     if (company.logo.startsWith('http')) return company.logo;
-    return 'http://localhost:8080' + company.logo;
+    return environment.apiUrl + company.logo;
   }
 
   getLocation(company: Company): string {
