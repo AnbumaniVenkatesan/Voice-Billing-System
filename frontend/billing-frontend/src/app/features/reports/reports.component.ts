@@ -45,16 +45,6 @@ import { Invoice } from '../../shared/models/models';
             </div>
           </div>
           <div class="filter-group">
-            <label>Status</label>
-            <div class="input-wrap">
-              <mat-icon>flag</mat-icon>
-              <select [(ngModel)]="searchStatus" (change)="applyFilter()">
-                <option value="">All</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-          </div>
-          <div class="filter-group">
             <label>From</label>
             <div class="input-wrap">
               <mat-icon>event</mat-icon>
@@ -186,10 +176,6 @@ import { Invoice } from '../../shared/models/models';
                 <span>₹{{ viewInvoice.cgstAmount | number:'1.2-2' }}</span>
               </div>
             </div>
-            <div class="view-sum-row" *ngIf="viewInvoice.discount > 0">
-              <span>Discount</span>
-              <span>-₹{{ viewInvoice.discount | number:'1.2-2' }}</span>
-            </div>
             <div class="view-sum-row total">
               <span>Grand Total</span>
               <span>₹{{ viewInvoice.totalAmount | number:'1.2-2' }}</span>
@@ -268,17 +254,17 @@ import { Invoice } from '../../shared/models/models';
     }
 
     .filter-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px 220px auto;
       gap: 16px;
-      align-items: flex-end;
-      flex-wrap: wrap;
+      align-items: end;
     }
 
     .filter-group {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      min-width: 160px;
+      min-width: 0;
     }
 
     .filter-group label {
@@ -297,7 +283,8 @@ import { Invoice } from '../../shared/models/models';
       border: 1.5px solid #E5E7EB;
       border-radius: 10px;
       padding: 0 12px;
-      height: 42px;
+      height: 56px;
+      min-width: 0;
       transition: all 200ms ease;
     }
 
@@ -321,6 +308,7 @@ import { Invoice } from '../../shared/models/models';
       font-size: 14px;
       color: #1E293B;
       width: 100%;
+      min-width: 0;
     }
 
     .input-wrap select {
@@ -335,7 +323,7 @@ import { Invoice } from '../../shared/models/models';
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      height: 42px;
+      height: 56px;
       padding: 0 20px;
       border: 1.5px solid #E5E7EB;
       border-radius: 10px;
@@ -694,6 +682,26 @@ import { Invoice } from '../../shared/models/models';
       justify-content: flex-end;
     }
 
+    /* Tablet: two rows allowed, controls wrap naturally */
+    @media (min-width: 768px) and (max-width: 1023.98px) {
+      .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+      }
+
+      .filter-group {
+        flex: 1 1 210px;
+        min-width: 200px;
+      }
+
+      .filter-actions {
+        flex: 1 1 210px;
+        align-items: flex-start;
+      }
+    }
+
     @media (max-width: 768px) {
       :host { padding: 16px; }
       .page-header { margin-bottom: 20px; }
@@ -709,10 +717,14 @@ import { Invoice } from '../../shared/models/models';
       }
       h1 { font-size: 24px; }
       .subtitle { font-size: 13px; }
-      .filter-row { flex-direction: column; }
+      .filter-row {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
       .filter-group { min-width: 100%; }
+      .filter-actions { align-items: stretch; }
+      .btn-clear { width: 100%; }
       .filter-bar { padding: 16px; }
-      .btn-clear { height: 48px; }
       .table-header-row { padding: 16px 16px 12px; }
       .paginator-wrapper {
         padding: 8px 8px 12px;
@@ -852,7 +864,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
 
-    const header = ['Invoice #', 'Date', 'Time', 'Items', 'Subtotal', 'GST', 'Discount', 'Total', 'Status'];
+    const header = ['Invoice #', 'Date', 'Time', 'Items', 'Subtotal', 'GST', 'Total', 'Status'];
     const lines: string[] = [header.map(esc).join(',')];
 
     for (const inv of this.filteredInvoices) {
@@ -867,7 +879,6 @@ export class ReportsComponent implements OnInit, OnDestroy {
         itemCount,
         inv.subtotal,
         inv.gstAmount,
-        inv.discount,
         inv.totalAmount,
         inv.paymentStatus
       ].map(esc).join(','));

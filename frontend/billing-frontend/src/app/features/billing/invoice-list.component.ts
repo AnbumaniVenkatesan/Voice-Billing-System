@@ -178,10 +178,6 @@ import { ReceiptPrintComponent } from './receipt-print.component';
               <td colspan="3"><strong>Subtotal</strong></td>
               <td>&#8377;{{ selectedInvoice.subtotal }}</td>
             </tr>
-            <tr *ngIf="selectedInvoice.discount > 0">
-              <td colspan="3"><strong>Discount</strong></td>
-              <td>-&#8377;{{ selectedInvoice.discount }}</td>
-            </tr>
             <tr *ngFor="let slab of selectedInvoice.taxSlabs">
               <td colspan="3"><strong>SGST ({{ slab.sgstRate }}%)</strong></td>
               <td>&#8377;{{ slab.sgstAmount }}</td>
@@ -746,7 +742,6 @@ export class InvoiceListComponent implements OnInit {
   dataSource = new MatTableDataSource<Invoice>();
   selectedInvoice: Invoice | null = null;
   company: Company | null = null;
-  isHotel = false;
 
   searchInvoiceNo = '';
   searchFromDate: Date | null = null;
@@ -767,7 +762,6 @@ export class InvoiceListComponent implements OnInit {
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.company = data;
-        this.isHotel = data.shopType !== 'Super Market';
         this.displayedColumns = ['invoiceNumber', 'totalAmount', 'paymentStatus', 'invoiceDate', 'actions'];
       },
       error: () => {}

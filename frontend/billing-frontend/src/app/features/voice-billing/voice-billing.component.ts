@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+﻿import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -247,34 +247,36 @@ declare var webkitSpeechRecognition: any;
             </p>
           </div>
 
-          <!-- Cash Receipt Card -->
-          <div class="card receipt-card" *ngIf="showCashReceipt">
-            <div class="receipt-header">
-              <mat-icon class="receipt-icon">receipt_long</mat-icon>
-              <div>
-                <span class="receipt-title">Invoice {{ createdInvoice?.invoiceNumber }}</span>
-                <span class="receipt-subtitle">Cash Payment</span>
+          <!-- Cash Receipt Dialog (original panel inside MatDialog) -->
+          <ng-template #cashReceiptDialog>
+            <div class="card receipt-card cash-receipt-dialog">
+              <div class="receipt-header">
+                <mat-icon class="receipt-icon">receipt_long</mat-icon>
+                <div>
+                  <span class="receipt-title">Invoice {{ createdInvoice?.invoiceNumber }}</span>
+                  <span class="receipt-subtitle">Cash Payment</span>
+                </div>
+              </div>
+              <div class="receipt-body">
+                <div class="receipt-amount">
+                  <span class="amount-label">Amount</span>
+                  <span class="amount-value">&#8377;{{ createdInvoice?.totalAmount }}</span>
+                </div>
+                <span class="status-pill success">Cash</span>
+              </div>
+              <div class="receipt-actions">
+                <button class="btn btn-primary" (click)="printReceipt()">
+                  <mat-icon>print</mat-icon> Print Receipt
+                </button>
+                <button class="btn btn-outline" (click)="changeToQr()">
+                  <mat-icon>qr_code_2</mat-icon> Change to QR
+                </button>
+                <button class="btn btn-outline" (click)="dialogRef?.close()">
+                  <mat-icon>close</mat-icon> Close
+                </button>
               </div>
             </div>
-            <div class="receipt-body">
-              <div class="receipt-amount">
-                <span class="amount-label">Amount</span>
-                <span class="amount-value">&#8377;{{ createdInvoice?.totalAmount }}</span>
-              </div>
-              <span class="status-pill success">Cash</span>
-            </div>
-            <div class="receipt-actions">
-              <button class="btn btn-primary" (click)="printReceipt()">
-                <mat-icon>print</mat-icon> Print Receipt
-              </button>
-              <button class="btn btn-outline" (click)="changeToQr()">
-                <mat-icon>qr_code_2</mat-icon> Change to QR
-              </button>
-              <button class="btn btn-outline" (click)="showCashReceipt = false">
-                <mat-icon>close</mat-icon> Close
-              </button>
-            </div>
-          </div>
+          </ng-template>
         </div>
       </div>
 
@@ -1263,10 +1265,34 @@ declare var webkitSpeechRecognition: any;
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       RECEIPT CARD
+       CASH RECEIPT (original inline panel, rendered inside a centered
+       MatDialog - the Material dialog surface provides the backdrop,
+       z-index, dimming and body-scroll lock automatically.)
+
+       NOTE: the dialog renders this template in the CDK overlay, which is
+       NOT a descendant of the component host, so the :host design tokens
+       are not inherited here. They are re-declared on .cash-receipt-dialog
+       so every var(--*) below resolves to the original values.
        ═══════════════════════════════════════════════════════════════ */
+    .cash-receipt-dialog {
+      --primary: #1E40AF;
+      --primary-hover: #1D4ED8;
+      --primary-light: #DBEAFE;
+      --primary-gradient: linear-gradient(135deg, #1E40AF, #3B82F6);
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --border: #E5E7EB;
+      --bg-page: #F8FAFC;
+      --danger: #EF4444;
+      --success: #16A34A;
+      --warning: #F59E0B;
+      --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --radius-card: 20px;
+      --radius-btn: 12px;
+      --transition: 250ms ease;
+    }
+
     .receipt-card {
-      border: 2px solid var(--success);
       animation: cardAppear 0.3s ease-out;
     }
 
@@ -1581,6 +1607,17 @@ declare var webkitSpeechRecognition: any;
         align-items: flex-start;
         gap: 8px;
       }
+
+      /* Cash receipt dialog - mobile: stack buttons vertically, full width */
+      .receipt-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .receipt-actions button {
+        width: 100%;
+        flex: 1 1 auto;
+      }
     }
 
     @media (max-width: 479.98px) {
@@ -1620,9 +1657,9 @@ declare var webkitSpeechRecognition: any;
 export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('cartScrollContainer') cartScrollContainer!: ElementRef;
   @ViewChild('orderTextarea') orderTextarea!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('cashReceiptDialog') cashReceiptDialog!: TemplateRef<any>;
 
   company: Company | null = null;
-  isHotel = false;
 
   orderText = '';
 
@@ -1648,6 +1685,8 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   qrCodeDataUrl = '';
   createdInvoice: Invoice | null = null;
   showCashReceipt = false;
+  dialogRef: any;
+  switchingToQr = false;
 
   constructor(
     private voiceService: VoiceService,
@@ -1662,7 +1701,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.company = data;
-        this.isHotel = data.shopType !== 'Super Market';
       },
       error: () => {}
     });
@@ -2027,7 +2065,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
         productId: c.productId!,
         quantity: c.quantity
       })),
-      discount: 0,
       paymentMethod: 'upi'
     };
 
@@ -2069,11 +2106,10 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
           qrCodeDataUrl: url,
           paymentMethod: 'QR',
           onPaymentReceived: () => this.receiveQrPayment(),
-          onChangeToCash: () => this.switchToCash(),
-          isHotel: this.isHotel
+          onChangeToCash: () => this.switchToCash()
         }
       });
-      this.snackBar.open('Invoice created! Show QR to customer.', 'Close', { duration: 4000 });
+      this.snackBar.open('Invoice created! Show QR to guest.', 'Close', { duration: 4000 });
     }).catch(() => {
       this.generating = false;
     });
@@ -2094,20 +2130,48 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
   private switchToCash(): void {
     const inv = this.createdInvoice;
     if (!inv) return;
-    this.dialog.open(PaymentSuccessDialogComponent, {
-      width: '360px',
-      disableClose: true,
-      data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
+    this.showCashReceipt = true;
+    this.openCashReceipt();
+  }
+
+  openCashReceipt(): void {
+    this.dialogRef = this.dialog.open(this.cashReceiptDialog!, {
+      width: '560px'
     });
-    this.printReceiptFor(inv, 'CASH');
-    this.finishBillingSession();
+    this.dialogRef.afterClosed().subscribe(() => {
+      this.dialogRef = null;
+      if (this.switchingToQr) {
+        this.switchingToQr = false;
+        return;
+      }
+      this.showCashReceipt = false;
+      this.createdInvoice = null;
+    });
   }
 
   changeToQr(): void {
     const inv = this.createdInvoice;
     if (!inv) return;
     this.showCashReceipt = false;
+    this.switchingToQr = true;
+    this.dialogRef?.close();
     this.generateQRCode(inv);
+  }
+
+  printReceipt(): void {
+    const inv = this.createdInvoice;
+    if (!inv) return;
+
+    this.dialog.open(PaymentSuccessDialogComponent, {
+      width: '360px',
+      disableClose: true,
+      data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
+    });
+    this.createdInvoice!.paymentStatus = 'completed';
+    this.showCashReceipt = false;
+    this.dialogRef?.close();
+
+    this.printReceiptFor(inv, 'CASH');
   }
 
   private finishBillingSession(): void {
@@ -2141,7 +2205,6 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
         productId: c.productId!,
         quantity: c.quantity
       })),
-      discount: 0,
       paymentMethod: 'cash'
     };
 
@@ -2149,6 +2212,7 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (invoice) => {
         this.createdInvoice = invoice;
         this.showCashReceipt = true;
+        this.openCashReceipt();
         this.generating = false;
         this.cart = [];
         this.unmatchedItems = [];
@@ -2161,20 +2225,5 @@ export class VoiceBillingComponent implements OnInit, AfterViewInit, OnDestroy {
         this.snackBar.open('Error: ' + (err.error?.message || 'Failed'), 'Close', { duration: 5000 });
       }
     });
-  }
-
-  printReceipt(): void {
-    const inv = this.createdInvoice;
-    if (!inv) return;
-
-    this.dialog.open(PaymentSuccessDialogComponent, {
-      width: '360px',
-      disableClose: true,
-      data: { invoiceNumber: inv.invoiceNumber, totalAmount: inv.totalAmount }
-    });
-    this.createdInvoice!.paymentStatus = 'completed';
-    this.showCashReceipt = false;
-
-    this.printReceiptFor(inv, 'CASH');
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, map } from 'rxjs';
+import { Observable, BehaviorSubject, tap } from 'rxjs';
 import { Company } from '../models/company.model';
 import { environment } from '../../../environments/environment';
 
@@ -12,9 +12,6 @@ export class CompanyService {
   private companySubject = new BehaviorSubject<Company | null>(null);
   company$ = this.companySubject.asObservable();
 
-  isHotel$ = this.company$.pipe(map(c => c?.shopType === 'Hotel'));
-  isSuperMarket$ = this.company$.pipe(map(c => c?.shopType === 'Super Market'));
-
   constructor(private http: HttpClient) {}
 
   getCompany(): Observable<Company> {
@@ -25,14 +22,6 @@ export class CompanyService {
 
   getCachedCompany(): Company | null {
     return this.companySubject.value;
-  }
-
-  isHotel(): boolean {
-    return this.companySubject.value?.shopType === 'Hotel';
-  }
-
-  isSuperMarket(): boolean {
-    return this.companySubject.value?.shopType === 'Super Market';
   }
 
   saveCompany(request: Partial<Company>): Observable<Company> {

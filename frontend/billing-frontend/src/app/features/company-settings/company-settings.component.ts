@@ -82,7 +82,6 @@ import { environment } from '../../../environments/environment';
               <select [(ngModel)]="company.shopType" class="form-select">
                 <option value="">Select type</option>
                 <option value="Hotel">Hotel</option>
-                <option value="Super Market">Super Market</option>
               </select>
             </div>
             <div class="form-group">

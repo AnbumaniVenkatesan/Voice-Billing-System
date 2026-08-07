@@ -3,14 +3,12 @@ package com.example.billing.service.impl;
 import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.InvoiceRequest;
 import com.example.billing.dto.response.InvoiceResponse;
-import com.example.billing.entity.Customer;
 import com.example.billing.entity.Invoice;
 import com.example.billing.entity.InvoiceItem;
 import com.example.billing.entity.Payment;
 import com.example.billing.entity.PaymentTransaction;
 import com.example.billing.entity.Product;
 import com.example.billing.exception.ResourceNotFoundException;
-import com.example.billing.repository.CustomerRepository;
 import com.example.billing.repository.InvoiceRepository;
 import com.example.billing.repository.PaymentRepository;
 import com.example.billing.repository.PaymentTransactionRepository;
@@ -36,7 +34,6 @@ import java.util.stream.Collectors;
 public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
-    private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
@@ -59,7 +56,6 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Transactional
     public InvoiceResponse createInvoice(InvoiceRequest request) {
         Long cid = companyId();
-        Customer customer = resolveCustomer(request.getCustomerId(), cid);
 
         List<InvoiceItem> invoiceItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -100,21 +96,18 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
 
         BigDecimal gstAmount = totalSgst.add(totalCgst);
-        BigDecimal discount = request.getDiscount() != null ? request.getDiscount() : BigDecimal.ZERO;
-        // Total is same as subtotal minus discount since GST is already included in prices
-        BigDecimal totalAmount = subtotal.subtract(discount);
+        // Total is same as subtotal since GST is already included in prices
+        BigDecimal totalAmount = subtotal;
 
         String invoiceNumber = generateInvoiceNumber(cid);
 
         Invoice invoice = Invoice.builder()
                 .invoiceNumber(invoiceNumber)
                 .companyId(cid)
-                .customer(customer)
                 .subtotal(subtotal)
                 .gstAmount(gstAmount)
                 .sgstAmount(totalSgst)
                 .cgstAmount(totalCgst)
-                .discount(discount)
                 .totalAmount(totalAmount)
                 .paymentStatus("completed")
                 .items(invoiceItems)
@@ -154,26 +147,6 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .companyId(invoice.getCompanyId())
                 .build();
         paymentTransactionRepository.save(transaction);
-    }
-
-    private Customer resolveCustomer(Long customerId, Long cid) {
-        if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
-            if (customer.getCompanyId() != null && !customer.getCompanyId().equals(cid)) {
-                throw new ResourceNotFoundException("Customer", "id", customerId);
-            }
-            return customer;
-        }
-
-        return customerRepository.findByCompanyId(cid).stream()
-                .filter(c -> "Walk-in Customer".equalsIgnoreCase(c.getCustomerName()))
-                .findFirst()
-                .orElseGet(() -> customerRepository.save(Customer.builder()
-                        .customerName("Walk-in Customer")
-                        .phone("9999999999")
-                        .companyId(cid)
-                        .build()));
     }
 
     @Override
@@ -227,15 +200,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         return InvoiceResponse.builder()
                 .invoiceId(invoice.getInvoiceId())
                 .invoiceNumber(invoice.getInvoiceNumber())
-                .customerId(invoice.getCustomer().getCustomerId())
-                .customerName(invoice.getCustomer().getCustomerName())
-                .customerPhone(invoice.getCustomer().getPhone())
                 .items(itemResponses)
                 .subtotal(invoice.getSubtotal())
                 .gstAmount(invoice.getGstAmount())
                 .sgstAmount(invoice.getSgstAmount() != null ? invoice.getSgstAmount() : BigDecimal.ZERO)
                 .cgstAmount(invoice.getCgstAmount() != null ? invoice.getCgstAmount() : BigDecimal.ZERO)
-                .discount(invoice.getDiscount())
                 .totalAmount(invoice.getTotalAmount())
                 .paymentStatus(invoice.getPaymentStatus())
                 .invoiceDate(invoice.getInvoiceDate())

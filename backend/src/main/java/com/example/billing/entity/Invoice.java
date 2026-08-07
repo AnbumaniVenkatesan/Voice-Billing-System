@@ -27,10 +27,6 @@ public class Invoice {
     @Column(name = "company_id")
     private Long companyId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
-
     @Column(name = "subtotal", precision = 10, scale = 2, nullable = false)
     private BigDecimal subtotal;
 
@@ -42,9 +38,6 @@ public class Invoice {
 
     @Column(name = "cgst_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal cgstAmount;
-
-    @Column(name = "discount", precision = 10, scale = 2, nullable = false)
-    private BigDecimal discount;
 
     @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal totalAmount;

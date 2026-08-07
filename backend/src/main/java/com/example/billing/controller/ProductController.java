@@ -3,7 +3,7 @@ package com.example.billing.controller;
 import com.example.billing.dto.request.ProductRequest;
 import com.example.billing.dto.response.ExcelImportResponse;
 import com.example.billing.dto.response.ProductResponse;
-import com.example.billing.dto.response.StockUpdateResponse;
+import com.example.billing.dto.response.ProductUpdateResponse;
 import com.example.billing.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -82,8 +82,8 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/stock-excel")
-    public ResponseEntity<StockUpdateResponse> importStock(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/update-excel")
+    public ResponseEntity<ProductUpdateResponse> updateFromExcel(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
@@ -91,7 +91,7 @@ public class ProductController {
         if (filename == null || !(filename.endsWith(".xlsx") || filename.endsWith(".xls"))) {
             return ResponseEntity.badRequest().build();
         }
-        StockUpdateResponse response = productService.updateStockFromExcel(file);
+        ProductUpdateResponse response = productService.updateProductsFromExcel(file);
         return ResponseEntity.ok(response);
     }
 

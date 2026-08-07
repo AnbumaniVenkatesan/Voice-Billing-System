@@ -12,13 +12,9 @@ import java.util.List;
 @Builder
 public class InvoiceRequest {
 
-    private Long customerId;
-
     @NotNull(message = "Items are required")
     @NotEmpty(message = "At least one item is required")
     private List<InvoiceItemRequest> items;
-
-    private BigDecimal discount;
 
     private String paymentMethod;
 

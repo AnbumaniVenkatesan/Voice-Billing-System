@@ -17,7 +17,6 @@ public class ProductResponse {
     private String tamilName;
     private BigDecimal price;
     private BigDecimal gstPercentage;
-    private Integer stock;
     private String status;
     private LocalDateTime createdAt;
     private List<String> aliases;

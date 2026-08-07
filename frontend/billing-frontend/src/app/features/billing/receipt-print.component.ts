@@ -68,9 +68,6 @@ export class ReceiptPrintComponent {
       return ' ' + formatRow(name, qty, price, total);
     }).join('\n');
 
-    const hasDiscount = invoice.discount && invoice.discount > 0;
-    const discountRow = hasDiscount ? '\n ' + formatSummaryRow('Discount', -(invoice.discount)) : '';
-
     const slabs = (invoice.taxSlabs || []).slice().sort((a: any, b: any) => a.gstRate - b.gstRate);
     let gstBreakdown: string;
     if (slabs.length > 0) {
@@ -154,7 +151,7 @@ export class ReceiptPrintComponent {
 <div class="dash-line">${line}</div>
 <div class="summary-row"> ${formatSummaryRow('Subtotal', invoice.subtotal || 0)}</div>
 <div class="summary-row" style="font-size: 10px; color: #555;">${includedGstRow}</div>
-<div class="summary-row">${gstBreakdown}${discountRow}
+<div class="summary-row">${gstBreakdown}
 </div>
 
 <div class="dash-line">${line}</div>

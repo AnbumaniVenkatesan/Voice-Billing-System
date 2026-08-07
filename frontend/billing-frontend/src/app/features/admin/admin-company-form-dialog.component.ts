@@ -29,7 +29,6 @@ export interface CompanyFormData {
           <select [(ngModel)]="company.shopType" class="form-input">
             <option value="">Select type</option>
             <option value="Hotel">Hotel</option>
-            <option value="Super Market">Super Market</option>
           </select>
         </div>
         <div class="form-group">

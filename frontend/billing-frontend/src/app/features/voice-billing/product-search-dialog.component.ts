@@ -90,9 +90,6 @@ export interface ProductSearchResult {
                 <div class="product-avatar">
                   <mat-icon>inventory_2</mat-icon>
                 </div>
-                <div class="stock-badge" [class.low]="getStockLevel(p) === 'low'" [class.out]="getStockLevel(p) === 'out'">
-                  {{ getStockLabel(p) }}
-                </div>
               </div>
               <div class="product-card-body">
                 <h4 class="product-name">{{ p.productName }}</h4>
@@ -452,25 +449,6 @@ export interface ProductSearchResult {
       color: white;
     }
 
-    .stock-badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: #ECFDF5;
-      color: #047857;
-    }
-
-    .stock-badge.low {
-      background: #FEF3C7;
-      color: #B45309;
-    }
-
-    .stock-badge.out {
-      background: #FEF2F2;
-      color: #991B1B;
-    }
-
     .product-card-body {
       flex: 1;
     }
@@ -637,21 +615,6 @@ export class ProductSearchDialogComponent implements OnInit {
   ngOnInit(): void {
     this.searchText = this.data.spokenText;
     this.onSearch();
-  }
-
-  getStockLevel(p: Product): string {
-    const stock = (p as any).stock ?? (p as any).quantity ?? 0;
-    if (stock <= 0) return 'out';
-    if (stock <= 5) return 'low';
-    return 'normal';
-  }
-
-  getStockLabel(p: Product): string {
-    const stock = (p as any).stock ?? (p as any).quantity ?? null;
-    if (stock === null || stock === undefined) return 'In Stock';
-    if (stock <= 0) return 'Out of Stock';
-    if (stock <= 5) return 'Low: ' + stock;
-    return 'In Stock';
   }
 
   onSearch(): void {

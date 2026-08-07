@@ -55,6 +55,11 @@ import { AuthService } from '../../core/auth/auth.service';
               </button>
             </mat-form-field>
 
+            <div class="super-admin-info" *ngIf="superAdminUsernameLoaded">
+              <span class="super-admin-label">Super Admin Username:</span>
+              <span class="super-admin-value">{{ superAdminUsername || 'Not Configured' }}</span>
+            </div>
+
             <div class="error-message" *ngIf="errorMessage">
               {{ errorMessage }}
             </div>
@@ -65,27 +70,6 @@ import { AuthService } from '../../core/auth/auth.service';
               <span *ngIf="!loading">Login</span>
             </button>
           </form>
-
-          <div class="reset-username-section">
-            <button type="button" class="reset-username-link" (click)="toggleSuperAdminUsername()"
-                    *ngIf="!showSuperAdminUsername">
-              <mat-icon>help_outline</mat-icon>
-              Forgot username? Show super admin username
-            </button>
-            <div class="reset-username-box" *ngIf="showSuperAdminUsername">
-              <div class="reset-username-header">
-                <mat-icon>admin_panel_settings</mat-icon>
-                <span>Super Admin Username</span>
-                <button type="button" class="reset-username-close" (click)="showSuperAdminUsername = false">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-              <p class="reset-username-value" *ngIf="!usernameLoading">
-                {{ superAdminUsername || 'No super admin account found' }}
-              </p>
-              <mat-spinner *ngIf="usernameLoading" diameter="18" class="spinner"></mat-spinner>
-            </div>
-          </div>
         </mat-card-content>
       </mat-card>
 
@@ -194,95 +178,26 @@ import { AuthService } from '../../core/auth/auth.service';
       border: 2px solid #E1BEE7;
     }
 
-    .reset-username-section {
-      margin-top: 16px;
-      text-align: center;
-    }
-
-    .reset-username-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: none;
-      background: none;
-      color: #5B21B6;
-      font-family: 'Poppins', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      padding: 6px 10px;
-      border-radius: 8px;
-      transition: background 200ms ease;
-    }
-
-    .reset-username-link:hover {
-      background: #F3E8FF;
-    }
-
-    .reset-username-link mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .reset-username-box {
-      margin-top: 12px;
-      border: 1px solid #E9D5FF;
-      background: #FAF5FF;
-      border-radius: 12px;
-      padding: 12px 14px;
-      text-align: left;
-    }
-
-    .reset-username-header {
+    .super-admin-info {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
+      gap: 6px;
+      margin: 4px 0 12px;
+      font-family: 'Poppins', sans-serif;
+      text-align: center;
+    }
+
+    .super-admin-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748B;
+    }
+
+    .super-admin-value {
       font-size: 13px;
       font-weight: 600;
-      color: #6B21A8;
-    }
-
-    .reset-username-header mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .reset-username-close {
-      margin-left: auto;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: none;
-      color: #9333EA;
-      cursor: pointer;
-      padding: 2px;
-      border-radius: 6px;
-    }
-
-    .reset-username-close:hover {
-      background: #F3E8FF;
-    }
-
-    .reset-username-close mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-
-    .reset-username-value {
-      margin: 8px 0 0;
-      padding: 8px 12px;
-      background: #FFFFFF;
-      border: 1px solid #E9D5FF;
-      border-radius: 8px;
-      font-family: 'Poppins', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
-      color: #4C1D95;
-      text-align: center;
+      color: #1E293B;
     }
 
     @media (max-width: 767.98px) {
@@ -318,9 +233,8 @@ export class LoginComponent implements OnInit {
   saCreating = false;
   saErrorMessage = '';
   saSuccessMessage = '';
-  showSuperAdminUsername = false;
   superAdminUsername = '';
-  usernameLoading = false;
+  superAdminUsernameLoaded = false;
 
   constructor(
     private authService: AuthService,
@@ -328,6 +242,7 @@ export class LoginComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadSuperAdminUsername();
     this.authService.getStatus().subscribe({
       next: (status) => {
         if (!status.hasUsers) {
@@ -337,6 +252,19 @@ export class LoginComponent implements OnInit {
         this.showSuperAdminSetup = status.hasUsers && !status.hasSuperAdmin;
       },
       error: () => {}
+    });
+  }
+
+  loadSuperAdminUsername(): void {
+    this.authService.getSuperAdminUsername().subscribe({
+      next: (res) => {
+        this.superAdminUsername = res.username || '';
+        this.superAdminUsernameLoaded = true;
+      },
+      error: () => {
+        this.superAdminUsername = '';
+        this.superAdminUsernameLoaded = true;
+      }
     });
   }
 
@@ -367,22 +295,6 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  toggleSuperAdminUsername(): void {
-    this.showSuperAdminUsername = true;
-    if (this.superAdminUsername) return;
-    this.usernameLoading = true;
-    this.authService.getSuperAdminUsername().subscribe({
-      next: (res) => {
-        this.superAdminUsername = res.username || '';
-        this.usernameLoading = false;
-      },
-      error: () => {
-        this.superAdminUsername = '';
-        this.usernameLoading = false;
-      }
-    });
-  }
-
   onCreateSuperAdmin(): void {
     if (!this.saUsername || !this.saPassword) {
       this.saErrorMessage = 'Please enter both username and password';
@@ -404,6 +316,7 @@ export class LoginComponent implements OnInit {
         this.showSuperAdminSetup = false;
         this.saUsername = '';
         this.saPassword = '';
+        this.loadSuperAdminUsername();
       },
       error: (err) => {
         this.saCreating = false;

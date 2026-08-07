@@ -3,7 +3,7 @@ package com.example.billing.service;
 import com.example.billing.dto.request.ProductRequest;
 import com.example.billing.dto.response.ExcelImportResponse;
 import com.example.billing.dto.response.ProductResponse;
-import com.example.billing.dto.response.StockUpdateResponse;
+import com.example.billing.dto.response.ProductUpdateResponse;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
@@ -23,7 +23,7 @@ public interface ProductService {
 
     ExcelImportResponse importFromExcel(MultipartFile file);
 
-    StockUpdateResponse updateStockFromExcel(MultipartFile file);
+    ProductUpdateResponse updateProductsFromExcel(MultipartFile file);
 
     byte[] exportToExcel();
 

@@ -13,7 +13,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     List<Product> findByStatusAndCompanyId(String status, Long companyId);
 
-    @Query(value = "SELECT p.product_id, p.product_name, p.stock, p.price, " +
+    @Query(value = "SELECT p.product_id, p.product_name, p.price, " +
             "COALESCE(s.total_qty, 0) as total_qty, " +
             "COALESCE(s.total_sales, 0) as total_sales " +
             "FROM product p " +

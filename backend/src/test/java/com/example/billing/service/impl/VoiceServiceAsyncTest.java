@@ -58,14 +58,13 @@ class VoiceServiceAsyncTest {
         }
     }
 
-    private Product createProduct(Long id, String name, String tamilName, BigDecimal price, BigDecimal gst, int stock) {
+    private Product createProduct(Long id, String name, String tamilName, BigDecimal price, BigDecimal gst) {
         return Product.builder()
                 .productId(id)
                 .productName(name)
                 .tamilName(tamilName)
                 .price(price)
                 .gstPercentage(gst)
-                .stock(stock)
                 .status("active")
                 .build();
     }
@@ -85,7 +84,7 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("Single product — should return 1 matched, 0 unmatched")
     void singleProduct_voiceCommand_returnsMatched() {
-        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO);
         ProductAlias arisiAlias = createAlias(rice, "arisi");
 
         when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
@@ -115,8 +114,8 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("Multiple products — all matched, returns correct items")
     void multipleProducts_allMatched_returnsAll() {
-        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
-        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"), 200);
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO);
+        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"));
 
         ProductAlias arisiAlias = createAlias(rice, "arisi");
         ProductAlias soapAlias = createAlias(soap, "soap");
@@ -142,7 +141,7 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("Mixed products — matched and unmatched separated correctly")
     void mixedProducts_returnsMatchedAndUnmatched() {
-        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO);
         ProductAlias arisiAlias = createAlias(rice, "arisi");
 
         when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
@@ -191,7 +190,7 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("GST calculated correctly — 18% on ₹35 soap x 2 = ₹12.60")
     void gstCalculation_correctAmount() {
-        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"), 200);
+        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), new BigDecimal("18.00"));
         ProductAlias soapAlias = createAlias(soap, "soap");
 
         when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
@@ -234,7 +233,7 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("Name fallback — product found by name match when no alias exists")
     void nameFallback_productFoundByName() {
-        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO);
 
         when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
                 .thenReturn(Collections.emptyList());
@@ -257,7 +256,7 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("Low stock — product still added (backorder allowed)")
     void lowStock_productStillAdded() {
-        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 1);
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO);
         ProductAlias arisiAlias = createAlias(rice, "arisi");
 
         when(productAliasRepository.findByAliasNamesIn(anyList(), anyLong()))
@@ -286,7 +285,7 @@ class VoiceServiceAsyncTest {
 
         for (int i = 1; i <= 10; i++) {
             Product p = createProduct((long) i, "Product" + i, "Tamil" + i,
-                    new BigDecimal("10.00"), BigDecimal.ZERO, 100);
+                    new BigDecimal("10.00"), BigDecimal.ZERO);
             products.add(p);
             aliases.add(createAlias(p, "product" + i));
         }
@@ -321,8 +320,8 @@ class VoiceServiceAsyncTest {
     @Test
     @DisplayName("Partial failure — one product error does not break others")
     void partialFailure_othersStillProcess() {
-        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO, 100);
-        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), BigDecimal.ZERO, 200);
+        Product rice = createProduct(1L, "Rice", "Arisi", new BigDecimal("85.00"), BigDecimal.ZERO);
+        Product soap = createProduct(2L, "Soap", "Sabuni", new BigDecimal("35.00"), BigDecimal.ZERO);
 
         ProductAlias arisiAlias = createAlias(rice, "arisi");
         ProductAlias soapAlias = createAlias(soap, "soap");
@@ -345,7 +344,7 @@ class VoiceServiceAsyncTest {
     // =========================================================================
 
     private Product createNamedProduct(Long id, String name, String tamilName) {
-        return createProduct(id, name, tamilName, new BigDecimal("10.00"), BigDecimal.ZERO, 100);
+        return createProduct(id, name, tamilName, new BigDecimal("10.00"), BigDecimal.ZERO);
     }
 
     private VoiceResponse process(String text, List<Product> products) {

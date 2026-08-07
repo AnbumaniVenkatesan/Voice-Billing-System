@@ -12,7 +12,6 @@ export interface QrDialogData {
   onPaymentReceived?: () => void;
   onChangeToCash?: () => void;
   onCompleted?: () => void;
-  isHotel?: boolean;
 }
 
 @Component({

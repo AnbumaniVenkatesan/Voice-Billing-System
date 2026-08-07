@@ -29,7 +29,6 @@ export interface Product {
   tamilName: string;
   price: number;
   gstPercentage: number;
-  stock: number;
   status: string;
   createdAt: string;
   aliases: string[];
@@ -41,7 +40,6 @@ export interface ProductRequest {
   tamilName: string;
   price: number;
   gstPercentage: number;
-  stock: number;
   status: string;
   aliases: string[];
 }
@@ -68,15 +66,11 @@ export interface TaxSlab {
 export interface Invoice {
   invoiceId: number;
   invoiceNumber: string;
-  customerId: number;
-  customerName: string;
-  customerPhone: string;
   items: InvoiceItem[];
   subtotal: number;
   gstAmount: number;
   sgstAmount: number;
   cgstAmount: number;
-  discount: number;
   totalAmount: number;
   paymentStatus: string;
   invoiceDate: string;
@@ -84,9 +78,7 @@ export interface Invoice {
 }
 
 export interface InvoiceRequest {
-  customerId?: number;
   items: InvoiceItemRequest[];
-  discount: number;
   paymentMethod?: string;
 }
 
@@ -154,7 +146,7 @@ export interface ExcelImportResponse {
   importedProducts: string[];
 }
 
-export interface StockUpdateResponse {
+export interface ProductUpdateResponse {
   totalRows: number;
   updatedCount: number;
   skippedCount: number;

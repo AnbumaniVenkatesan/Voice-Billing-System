@@ -68,10 +68,9 @@ public class DashboardController {
             Long productId = ((Number) row[0]).longValue();
             product.put("productId", productId);
             product.put("productName", row[1]);
-            product.put("stock", row[2]);
-            product.put("price", row[3]);
-            product.put("todayQty", ((Number) row[4]).doubleValue());
-            product.put("todaySales", row[5]);
+            product.put("price", row[2]);
+            product.put("todayQty", ((Number) row[3]).doubleValue());
+            product.put("todaySales", row[4]);
             product.put("monthlyQty", 0.0);
             product.put("monthlySales", BigDecimal.ZERO);
             addedProductIds.add(productId);
@@ -83,8 +82,8 @@ public class DashboardController {
             boolean found = false;
             for (Map<String, Object> p : products) {
                 if (p.get("productId").equals(productId)) {
-                    p.put("monthlyQty", ((Number) row[4]).doubleValue());
-                    p.put("monthlySales", row[5]);
+                    p.put("monthlyQty", ((Number) row[3]).doubleValue());
+                    p.put("monthlySales", row[4]);
                     found = true;
                     break;
                 }
@@ -93,12 +92,11 @@ public class DashboardController {
                 Map<String, Object> product = new HashMap<>();
                 product.put("productId", productId);
                 product.put("productName", row[1]);
-                product.put("stock", row[2]);
-                product.put("price", row[3]);
+                product.put("price", row[2]);
                 product.put("todayQty", 0.0);
                 product.put("todaySales", BigDecimal.ZERO);
-                product.put("monthlyQty", ((Number) row[4]).doubleValue());
-                product.put("monthlySales", row[5]);
+                product.put("monthlyQty", ((Number) row[3]).doubleValue());
+                product.put("monthlySales", row[4]);
                 products.add(product);
             }
         }

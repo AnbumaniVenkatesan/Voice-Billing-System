@@ -722,12 +722,7 @@ export class LayoutComponent implements OnInit {
     this.companyService.getCompany().subscribe({
       next: (data) => {
         this.companyName = data.companyName || 'Smart Billing System';
-        const shopType = data.shopType;
-        if (shopType === 'Hotel' || shopType === 'Super Market') {
-          this.showProducts = true;
-        } else {
-          this.showProducts = false;
-        }
+        this.showProducts = true;
       },
       error: () => {}
     });

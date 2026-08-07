@@ -354,7 +354,7 @@ export class AdminCompaniesComponent implements OnInit {
   deleteCompany(company: Company): void {
     this.confirmService.confirm({
       title: 'Delete Company?',
-      message: `Permanently delete ${company.companyName}? This removes ALL its products, customers, invoices and payments. This cannot be undone.`
+      message: `Permanently delete ${company.companyName}? This removes ALL its products, invoices and payments. This cannot be undone.`
     }).subscribe(confirmed => {
       if (!confirmed) return;
       this.adminService.deleteCompany(company.companyId).subscribe({

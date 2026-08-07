@@ -4,7 +4,7 @@ import com.example.billing.config.CurrentUserProvider;
 import com.example.billing.dto.request.ProductRequest;
 import com.example.billing.dto.response.ExcelImportResponse;
 import com.example.billing.dto.response.ProductResponse;
-import com.example.billing.dto.response.StockUpdateResponse;
+import com.example.billing.dto.response.ProductUpdateResponse;
 import com.example.billing.entity.Product;
 import com.example.billing.entity.ProductAlias;
 import com.example.billing.exception.ResourceNotFoundException;
@@ -63,10 +63,10 @@ public class ProductServiceImpl implements ProductService {
                 return updateProduct(request.getProductId(), request);
             }
             jdbcTemplate.update(
-                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())",
                 request.getProductId(), request.getProductName(), request.getTamilName(),
                 request.getPrice(), request.getGstPercentage() != null ? request.getGstPercentage() : BigDecimal.ZERO,
-                request.getStock(), request.getStatus() != null ? request.getStatus() : "active", cid);
+                request.getStatus() != null ? request.getStatus() : "active", cid);
             product = productRepository.findById(request.getProductId()).orElseThrow();
         } else {
             product = Product.builder()
@@ -74,7 +74,6 @@ public class ProductServiceImpl implements ProductService {
                     .tamilName(request.getTamilName())
                     .price(request.getPrice())
                     .gstPercentage(request.getGstPercentage() != null ? request.getGstPercentage() : BigDecimal.ZERO)
-                    .stock(request.getStock())
                     .status(request.getStatus() != null ? request.getStatus() : "active")
                     .companyId(cid)
                     .aliases(new ArrayList<>())
@@ -140,7 +139,6 @@ public class ProductServiceImpl implements ProductService {
         product.setTamilName(request.getTamilName());
         product.setPrice(request.getPrice());
         product.setGstPercentage(request.getGstPercentage() != null ? request.getGstPercentage() : java.math.BigDecimal.ZERO);
-        product.setStock(request.getStock());
         product.setStatus(request.getStatus() != null ? request.getStatus() : "active");
 
         product.getAliases().clear();
@@ -240,7 +238,6 @@ public class ProductServiceImpl implements ProductService {
             int colTamil   = colMap.getOrDefault("tamilname", colMap.getOrDefault("tamil", -1));
             int colPrice   = colMap.getOrDefault("price", -1);
             int colGst     = colMap.getOrDefault("gst%", colMap.getOrDefault("gst", -1));
-            int colStock   = colMap.getOrDefault("stock", -1);
             int colStatus  = colMap.getOrDefault("status", -1);
 
             List<Integer> aliasCols = new ArrayList<>();
@@ -281,7 +278,6 @@ public class ProductServiceImpl implements ProductService {
                 String tamilName   = getCellStringValue(colTamil >= 0 ? row.getCell(colTamil) : null);
                 String priceStr    = getCellStringValue(colPrice >= 0 ? row.getCell(colPrice) : null);
                 String gstStr      = getCellStringValue(colGst >= 0 ? row.getCell(colGst) : null);
-                String stockStr    = getCellStringValue(colStock >= 0 ? row.getCell(colStock) : null);
                 String status      = getCellStringValue(colStatus >= 0 ? row.getCell(colStatus) : null);
 
                 if (productName == null || productName.trim().isEmpty()) {
@@ -304,15 +300,6 @@ public class ProductServiceImpl implements ProductService {
                     }
                 } catch (NumberFormatException e) {
                     errors.add("Row " + (totalRows + 1) + " (" + productName + "): Invalid price '" + priceStr + "'");
-                    continue;
-                }
-
-                int stock;
-                try {
-                    stock = stockStr != null && !stockStr.trim().isEmpty()
-                            ? Integer.parseInt(stockStr.trim()) : 0;
-                } catch (NumberFormatException e) {
-                    errors.add("Row " + (totalRows + 1) + " (" + productName + "): Invalid stock '" + stockStr + "'");
                     continue;
                 }
 
@@ -382,7 +369,7 @@ public class ProductServiceImpl implements ProductService {
 
                 try {
                     saveProductWithAliases(productId, productName, tamilName != null ? tamilName.trim() : null,
-                            price, gstPercentage, stock, finalStatus, aliasList);
+                            price, gstPercentage, finalStatus, aliasList);
                 } catch (Exception e) {
                     errors.add("Row " + (totalRows + 1) + " (" + productName + "): Save failed - " + e.getMessage());
                     continue;
@@ -407,16 +394,148 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ProductUpdateResponse updateProductsFromExcel(MultipartFile file) {
+        List<String> updated = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        List<String> notFound = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        int totalRows = 0;
+
+        Map<String, Product> productByName = productRepository.findByCompanyId(companyId()).stream()
+                .collect(Collectors.toMap(p -> p.getProductName().trim().toLowerCase(), p -> p, (a, b) -> a));
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Iterator<Row> rowIterator = sheet.iterator();
+
+            Map<String, Integer> colMap = new HashMap<>();
+            if (rowIterator.hasNext()) {
+                Row headerRow = rowIterator.next();
+                for (int i = 0; i <= headerRow.getLastCellNum(); i++) {
+                    Cell cell = headerRow.getCell(i);
+                    String header = getCellStringValue(cell);
+                    if (header != null) {
+                        colMap.put(header.trim().toLowerCase().replaceAll("[\\s_]+", ""), i);
+                    }
+                }
+            }
+
+            int colName = colMap.getOrDefault("productname", colMap.getOrDefault("name", -1));
+            int colPrice = colMap.getOrDefault("price", -1);
+            int colGst = colMap.getOrDefault("gst%", colMap.getOrDefault("gst", colMap.getOrDefault("gstpercentage", -1)));
+
+            if (colName == -1) {
+                errors.add("Excel must have a 'Name' or 'Product Name' column");
+                return ProductUpdateResponse.builder().totalRows(0).updatedCount(0)
+                        .skippedCount(0).notFoundCount(0).updated(updated)
+                        .skipped(skipped).notFound(notFound).errors(errors).build();
+            }
+
+            boolean hasPrice = colPrice >= 0;
+            boolean hasGst = colGst >= 0;
+
+            if (!hasPrice && !hasGst) {
+                errors.add("Excel must have a 'Price' and/or 'GST %' column");
+                return ProductUpdateResponse.builder().totalRows(0).updatedCount(0)
+                        .skippedCount(0).notFoundCount(0).updated(updated)
+                        .skipped(skipped).notFound(notFound).errors(errors).build();
+            }
+
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                totalRows++;
+
+                String productName = getCellStringValue(colName >= 0 ? row.getCell(colName) : null);
+                String priceStr = hasPrice ? getCellStringValue(row.getCell(colPrice)) : null;
+                String gstStr = hasGst ? getCellStringValue(row.getCell(colGst)) : null;
+
+                if (productName == null || productName.trim().isEmpty()) {
+                    skipped.add("Row " + (totalRows + 1) + ": Empty product name");
+                    continue;
+                }
+
+                String key = productName.trim().toLowerCase();
+                Product product = productByName.get(key);
+
+                if (product == null) {
+                    notFound.add(productName.trim());
+                    continue;
+                }
+
+                boolean hasPriceVal = priceStr != null && !priceStr.trim().isEmpty();
+                boolean hasGstVal = gstStr != null && !gstStr.trim().isEmpty();
+
+                if (!hasPriceVal && !hasGstVal) {
+                    skipped.add(productName.trim() + " (no price or GST to update)");
+                    continue;
+                }
+
+                StringBuilder msg = new StringBuilder(productName.trim());
+
+                if (hasPriceVal) {
+                    BigDecimal newPrice;
+                    try {
+                        newPrice = new BigDecimal(priceStr.trim());
+                    } catch (NumberFormatException e) {
+                        errors.add("Row " + (totalRows + 1) + " (" + productName + "): Invalid price '" + priceStr + "'");
+                        continue;
+                    }
+                    if (newPrice.compareTo(BigDecimal.ZERO) < 0) {
+                        skipped.add(productName.trim() + " (price < 0, skipped)");
+                        continue;
+                    }
+                    msg.append(" price: ₹").append(product.getPrice()).append("→₹").append(newPrice);
+                    product.setPrice(newPrice);
+                }
+
+                if (hasGstVal) {
+                    BigDecimal newGst;
+                    try {
+                        newGst = new BigDecimal(gstStr.trim());
+                    } catch (NumberFormatException e) {
+                        errors.add("Row " + (totalRows + 1) + " (" + productName + "): Invalid GST '" + gstStr + "'");
+                        continue;
+                    }
+                    if (newGst.compareTo(BigDecimal.ZERO) < 0) {
+                        skipped.add(productName.trim() + " (GST < 0, skipped)");
+                        continue;
+                    }
+                    msg.append(" GST: ").append(product.getGstPercentage()).append("%→").append(newGst).append("%");
+                    product.setGstPercentage(newGst);
+                }
+
+                productRepository.save(product);
+                updated.add(msg.toString());
+            }
+
+        } catch (Exception e) {
+            errors.add("Failed to read Excel file: " + e.getMessage());
+        }
+
+        return ProductUpdateResponse.builder()
+                .totalRows(totalRows)
+                .updatedCount(updated.size())
+                .skippedCount(skipped.size())
+                .notFoundCount(notFound.size())
+                .updated(updated)
+                .skipped(skipped)
+                .notFound(notFound)
+                .errors(errors)
+                .build();
+    }
+
     @Transactional
     public void saveProductWithAliases(Long productId, String productName, String tamilName,
                                        java.math.BigDecimal price, java.math.BigDecimal gstPercentage,
-                                       int stock, String status, List<String> aliasList) {
+                                       String status, List<String> aliasList) {
         Product saved;
         Long cid = companyId();
         if (productId != null) {
             jdbcTemplate.update(
-                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, stock, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
-                productId, productName, tamilName, price, gstPercentage, stock, status, cid);
+                "INSERT INTO product (product_id, product_name, tamil_name, price, gst_percentage, status, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())",
+                productId, productName, tamilName, price, gstPercentage, status, cid);
             saved = productRepository.findById(productId).orElseThrow();
         } else {
             Product product = Product.builder()
@@ -424,7 +543,6 @@ public class ProductServiceImpl implements ProductService {
                     .tamilName(tamilName)
                     .price(price)
                     .gstPercentage(gstPercentage)
-                    .stock(stock)
                     .status(status)
                     .companyId(cid)
                     .aliases(new ArrayList<>())
@@ -464,136 +582,11 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public StockUpdateResponse updateStockFromExcel(MultipartFile file) {
-        List<String> updated = new ArrayList<>();
-        List<String> skipped = new ArrayList<>();
-        List<String> notFound = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
-        int totalRows = 0;
-
-        Map<String, Product> productByName = productRepository.findByCompanyId(companyId()).stream()
-                .collect(Collectors.toMap(p -> p.getProductName().trim().toLowerCase(), p -> p, (a, b) -> a));
-
-        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Iterator<Row> rowIterator = sheet.iterator();
-
-            Map<String, Integer> colMap = new HashMap<>();
-            if (rowIterator.hasNext()) {
-                Row headerRow = rowIterator.next();
-                for (int i = 0; i <= headerRow.getLastCellNum(); i++) {
-                    Cell cell = headerRow.getCell(i);
-                    String header = getCellStringValue(cell);
-                    if (header != null) {
-                        colMap.put(header.trim().toLowerCase().replaceAll("[\\s_]+", ""), i);
-                    }
-                }
-            }
-
-            int colName = colMap.getOrDefault("productname", colMap.getOrDefault("name", -1));
-            int colStock = colMap.getOrDefault("stock", -1);
-            int colPrice = colMap.getOrDefault("price", -1);
-
-            if (colName == -1) {
-                errors.add("Excel must have a 'Name' or 'Product Name' column");
-                return StockUpdateResponse.builder().totalRows(0).updatedCount(0)
-                        .skippedCount(0).notFoundCount(0).updated(updated)
-                        .skipped(skipped).notFound(notFound).errors(errors).build();
-            }
-
-            boolean hasStock = colStock >= 0;
-            boolean hasPrice = colPrice >= 0;
-
-            while (rowIterator.hasNext()) {
-                Row row = rowIterator.next();
-                totalRows++;
-
-                String productName = getCellStringValue(colName >= 0 ? row.getCell(colName) : null);
-                String stockStr = hasStock ? getCellStringValue(row.getCell(colStock)) : null;
-                String priceStr = hasPrice ? getCellStringValue(row.getCell(colPrice)) : null;
-
-                if (productName == null || productName.trim().isEmpty()) {
-                    skipped.add("Row " + (totalRows + 1) + ": Empty product name");
-                    continue;
-                }
-
-                String key = productName.trim().toLowerCase();
-                Product product = productByName.get(key);
-
-                if (product == null) {
-                    notFound.add(productName.trim());
-                    continue;
-                }
-
-                boolean hasStockVal = stockStr != null && !stockStr.trim().isEmpty();
-                boolean hasPriceVal = priceStr != null && !priceStr.trim().isEmpty();
-
-                if (!hasStockVal && !hasPriceVal) {
-                    skipped.add(productName.trim() + " (no stock or price to update)");
-                    continue;
-                }
-
-                StringBuilder msg = new StringBuilder(productName.trim());
-
-                if (hasStockVal) {
-                    int addStock;
-                    try {
-                        addStock = Integer.parseInt(stockStr.trim());
-                    } catch (NumberFormatException e) {
-                        errors.add("Row " + (totalRows + 1) + " (" + productName + "): Invalid stock '" + stockStr + "'");
-                        continue;
-                    }
-                    if (addStock <= 0) {
-                        skipped.add(productName.trim() + " (stock <= 0, skipped)");
-                        continue;
-                    }
-                    int oldStock = product.getStock();
-                    product.setStock(oldStock + addStock);
-                    msg.append(" stock: ").append(oldStock).append("→").append(product.getStock());
-                }
-
-                if (hasPriceVal) {
-                    java.math.BigDecimal newPrice;
-                    try {
-                        newPrice = new java.math.BigDecimal(priceStr.trim());
-                    } catch (NumberFormatException e) {
-                        errors.add("Row " + (totalRows + 1) + " (" + productName + "): Invalid price '" + priceStr + "'");
-                        continue;
-                    }
-                    if (newPrice.compareTo(java.math.BigDecimal.ZERO) <= 0) {
-                        skipped.add(productName.trim() + " (price <= 0, skipped)");
-                        continue;
-                    }
-                    msg.append(" price: ₹").append(product.getPrice()).append("→₹").append(newPrice);
-                    product.setPrice(newPrice);
-                }
-
-                productRepository.save(product);
-                updated.add(msg.toString());
-            }
-
-        } catch (Exception e) {
-            errors.add("Failed to read Excel file: " + e.getMessage());
-        }
-
-        return StockUpdateResponse.builder()
-                .totalRows(totalRows)
-                .updatedCount(updated.size())
-                .skippedCount(skipped.size())
-                .notFoundCount(notFound.size())
-                .updated(updated)
-                .skipped(skipped)
-                .notFound(notFound)
-                .errors(errors)
-                .build();
-    }
-
-    @Override
     public byte[] exportToExcel() {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Products");
-            String[] headers = {"Product Name", "Tamil Name", "Price", "GST %", "Stock", "Status"};
+            String[] headers = {"Product Name", "Tamil Name", "Price", "GST %", "Status"};
             Row headerRow = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -616,8 +609,7 @@ public class ProductServiceImpl implements ProductService {
                 row.createCell(1).setCellValue(p.getTamilName() != null ? p.getTamilName() : "");
                 row.createCell(2).setCellValue(p.getPrice() != null ? p.getPrice().doubleValue() : 0.0);
                 row.createCell(3).setCellValue(p.getGstPercentage() != null ? p.getGstPercentage().doubleValue() : 0.0);
-                row.createCell(4).setCellValue(p.getStock());
-                row.createCell(5).setCellValue(p.getStatus() != null ? p.getStatus() : "active");
+                row.createCell(4).setCellValue(p.getStatus() != null ? p.getStatus() : "active");
             }
 
             workbook.write(out);
@@ -737,7 +729,6 @@ public class ProductServiceImpl implements ProductService {
                 .tamilName(product.getTamilName())
                 .price(product.getPrice())
                 .gstPercentage(product.getGstPercentage())
-                .stock(product.getStock())
                 .status(product.getStatus())
                 .createdAt(product.getCreatedAt())
                 .aliases(aliasNames)

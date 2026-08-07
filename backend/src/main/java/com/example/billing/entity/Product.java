@@ -33,9 +33,6 @@ public class Product {
     @Column(name = "gst_percentage", precision = 5, scale = 2, nullable = false)
     private BigDecimal gstPercentage;
 
-    @Column(name = "stock", nullable = false)
-    private Integer stock;
-
     @Column(name = "status", length = 20, nullable = false)
     private String status;
 

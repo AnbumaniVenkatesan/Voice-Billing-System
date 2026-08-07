@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } from '../models/models';
+import { Product, ProductRequest, ExcelImportResponse, ProductUpdateResponse } from '../models/models';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -42,10 +42,10 @@ export class ProductService {
     return this.http.post<ExcelImportResponse>(`${this.apiUrl}/import-excel`, formData);
   }
 
-  updateStock(file: File): Observable<StockUpdateResponse> {
+  updateFromExcel(file: File): Observable<ProductUpdateResponse> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<StockUpdateResponse>(`${this.apiUrl}/stock-excel`, formData);
+    return this.http.post<ProductUpdateResponse>(`${this.apiUrl}/update-excel`, formData);
   }
 
   exportExcel(): Observable<Blob> {

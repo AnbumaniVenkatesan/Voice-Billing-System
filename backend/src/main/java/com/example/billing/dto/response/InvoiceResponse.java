@@ -14,15 +14,11 @@ public class InvoiceResponse {
 
     private Long invoiceId;
     private String invoiceNumber;
-    private Long customerId;
-    private String customerName;
-    private String customerPhone;
     private List<InvoiceItemResponse> items;
     private BigDecimal subtotal;
     private BigDecimal gstAmount;
     private BigDecimal sgstAmount;
     private BigDecimal cgstAmount;
-    private BigDecimal discount;
     private BigDecimal totalAmount;
     private String paymentStatus;
     private LocalDateTime invoiceDate;

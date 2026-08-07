@@ -26,10 +26,6 @@ public class ProductRequest {
     @DecimalMin(value = "0.0", message = "GST percentage cannot be negative")
     private BigDecimal gstPercentage;
 
-    @NotNull(message = "Stock is required")
-    @Min(value = 0, message = "Stock cannot be negative")
-    private Integer stock;
-
     private String status;
 
     private List<String> aliases;

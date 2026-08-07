@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -43,8 +44,10 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> getSuperAdminUsername() {
         String username = userRepository.findByRole("SUPER_ADMIN")
                 .map(com.example.billing.entity.User::getUsername)
-                .orElse("");
-        return ResponseEntity.ok(Map.of("username", username));
+                .orElse(null);
+        Map<String, String> result = new HashMap<>();
+        result.put("username", username);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/create-super-admin")

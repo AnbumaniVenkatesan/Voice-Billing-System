@@ -17,7 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ProductService } from '../../shared/services/product.service';
 import { ConfirmService } from '../../shared/services/confirm.service';
 import { ModalStateService } from '../../shared/services/modal-state.service';
-import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } from '../../shared/models/models';
+import { Product, ProductRequest, ExcelImportResponse, ProductUpdateResponse } from '../../shared/models/models';
 
 @Component({
   selector: 'app-product',
@@ -134,11 +134,11 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
                 <span class="lbl-long">Import Excel</span><span class="lbl-short">Import</span>
               </button>
               <input #fileInput type="file" accept=".xlsx,.xls" hidden (change)="onFileSelected($event)">
-              <button type="button" class="btn btn-excel" (click)="stockFileInput.click()">
+              <button type="button" class="btn btn-excel" (click)="updateFileInput.click()">
                 <mat-icon>upload_file</mat-icon>
-                <span class="lbl-long">Update from Excel</span><span class="lbl-short">Update</span>
+                <span class="lbl-long">Update Excel</span><span class="lbl-short">Update</span>
               </button>
-              <input #stockFileInput type="file" accept=".xlsx,.xls" hidden (change)="onStockFileSelected($event)">
+              <input #updateFileInput type="file" accept=".xlsx,.xls" hidden (change)="onUpdateFileSelected($event)">
               <button type="button" class="btn btn-excel" (click)="exportExcel()">
                 <mat-icon>download</mat-icon>
                 <span class="lbl-long">Export Excel</span><span class="lbl-short">Export</span>
@@ -296,62 +296,68 @@ import { Product, ProductRequest, ExcelImportResponse, StockUpdateResponse } fro
       </div>
     </div>
 
-    <!-- Stock update result dialog -->
-    <div class="result-overlay" *ngIf="stockResult" (click)="closeStockResult()">
+    <!-- Update progress -->
+    <div class="import-progress" *ngIf="updating">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <p>Updating products from Excel...</p>
+    </div>
+
+    <!-- Update result dialog -->
+    <div class="result-overlay" *ngIf="updateResult" (click)="closeUpdateResult()">
       <div class="result-card" (click)="$event.stopPropagation()">
-        <h3>Stock Update Result</h3>
+        <h3>Update Result</h3>
         <div class="result-summary">
           <div class="stat">
-            <span class="stat-value total">{{ stockResult.totalRows }}</span>
+            <span class="stat-value total">{{ updateResult.totalRows }}</span>
             <span class="stat-label">Total Rows</span>
           </div>
           <div class="stat">
-            <span class="stat-value success">{{ stockResult.updatedCount }}</span>
+            <span class="stat-value success">{{ updateResult.updatedCount }}</span>
             <span class="stat-label">Updated</span>
           </div>
           <div class="stat">
-            <span class="stat-value skip">{{ stockResult.skippedCount }}</span>
+            <span class="stat-value skip">{{ updateResult.skippedCount }}</span>
             <span class="stat-label">Skipped</span>
           </div>
           <div class="stat">
-            <span class="stat-value error">{{ stockResult.notFoundCount }}</span>
+            <span class="stat-value error">{{ updateResult.notFoundCount }}</span>
             <span class="stat-label">Not Found</span>
           </div>
         </div>
-        <div class="imported-list" *ngIf="stockResult.updated.length > 0">
+        <div class="imported-list" *ngIf="updateResult.updated.length > 0">
           <h4>Updated</h4>
           <ul>
-            <li *ngFor="let msg of stockResult.updated">
+            <li *ngFor="let msg of updateResult.updated">
               <mat-icon class="success-icon">check_circle</mat-icon> {{ msg }}
             </li>
           </ul>
         </div>
-        <div class="imported-list" *ngIf="stockResult.skipped.length > 0">
+        <div class="imported-list" *ngIf="updateResult.skipped.length > 0">
           <h4>Skipped</h4>
           <ul>
-            <li *ngFor="let msg of stockResult.skipped">
+            <li *ngFor="let msg of updateResult.skipped">
               <mat-icon class="skip-icon">skip_next</mat-icon> {{ msg }}
             </li>
           </ul>
         </div>
-        <div class="error-list" *ngIf="stockResult.notFound.length > 0">
+        <div class="error-list" *ngIf="updateResult.notFound.length > 0">
           <h4>Not Found</h4>
           <ul>
-            <li *ngFor="let name of stockResult.notFound" class="error-item">
+            <li *ngFor="let name of updateResult.notFound" class="error-item">
               <mat-icon class="error-icon">error</mat-icon> {{ name }}
             </li>
           </ul>
         </div>
-        <div class="error-list" *ngIf="stockResult.errors.length > 0">
+        <div class="error-list" *ngIf="updateResult.errors.length > 0">
           <h4>Errors</h4>
           <ul>
-            <li *ngFor="let err of stockResult.errors" class="error-item">
+            <li *ngFor="let err of updateResult.errors" class="error-item">
               <mat-icon class="error-icon">error</mat-icon> {{ err }}
             </li>
           </ul>
         </div>
         <div class="result-actions">
-          <button class="btn btn-primary" (click)="closeStockResult()">Close</button>
+          <button class="btn btn-primary" (click)="closeUpdateResult()">Close</button>
         </div>
       </div>
     </div>
@@ -1233,12 +1239,13 @@ export class ProductComponent implements OnInit, OnDestroy {
   activeFilter = 'all';
   formData: ProductRequest = {
     productId: undefined, productName: '', tamilName: '', price: 0, gstPercentage: 0,
-    stock: 0, status: 'active', aliases: []
+    status: 'active', aliases: []
   };
 
   importing = false;
   importResult: ExcelImportResponse | null = null;
-  stockResult: StockUpdateResponse | null = null;
+  updating = false;
+  updateResult: ProductUpdateResponse | null = null;
   showFormatHelp = false;
   currentTime = '';
   private clockInterval: any;
@@ -1268,8 +1275,8 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.modalState.close();
   }
 
-  closeStockResult(): void {
-    this.stockResult = null;
+  closeUpdateResult(): void {
+    this.updateResult = null;
     this.modalState.close();
   }
 
@@ -1353,7 +1360,6 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.formData.tamilName = product.tamilName;
     this.formData.price = product.price;
     this.formData.gstPercentage = product.gstPercentage;
-    this.formData.stock = product.stock;
     this.formData.status = product.status;
     this.formData.aliases = [...new Set((product.aliases || []).map(a => a.trim()).filter(a => a.length > 0))];
   }
@@ -1367,9 +1373,6 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.activeFilter = filter;
     if (filter === 'all') {
       this.dataSource.filter = '';
-    } else if (filter === 'lowstock') {
-      this.dataSource.filterPredicate = (data: Product) => data.stock <= 20;
-      this.dataSource.filter = 'lowstock';
     } else {
       const categoryMap: Record<string, number> = {
         groceries: 0, vegetables: 0, hotel: 3, bakery: 5
@@ -1387,7 +1390,7 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.productIdInput = '';
     this.formData = {
       productId: undefined, productName: '', tamilName: '', price: 0, gstPercentage: 0,
-      stock: 0, status: 'active', aliases: []
+      status: 'active', aliases: []
     };
   }
 
@@ -1467,7 +1470,7 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.productIdInput = '';
     this.formData = {
       productId: undefined, productName: '', tamilName: '', price: 0, gstPercentage: 0,
-      stock: 0, status: 'active', aliases: []
+      status: 'active', aliases: []
     };
   }
 
@@ -1514,7 +1517,7 @@ export class ProductComponent implements OnInit, OnDestroy {
     input.value = '';
   }
 
-  onStockFileSelected(event: Event): void {
+  onUpdateFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
 
@@ -1525,17 +1528,17 @@ export class ProductComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.importing = true;
-    this.productService.updateStock(file).subscribe({
+    this.updating = true;
+    this.productService.updateFromExcel(file).subscribe({
       next: (result) => {
-        this.importing = false;
-        this.stockResult = result;
+        this.updating = false;
+        this.updateResult = result;
         this.modalState.open();
         this.loadProducts();
       },
       error: (err) => {
-        this.importing = false;
-        this.snackBar.open('Stock update failed: ' + (err.error?.message || 'Server error'), 'Close', { duration: 5000 });
+        this.updating = false;
+        this.snackBar.open('Update failed: ' + (err.error?.message || 'Server error'), 'Close', { duration: 5000 });
       }
     });
 

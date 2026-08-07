@@ -8,7 +8,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class StockUpdateResponse {
+public class ProductUpdateResponse {
 
     private int totalRows;
     private int updatedCount;

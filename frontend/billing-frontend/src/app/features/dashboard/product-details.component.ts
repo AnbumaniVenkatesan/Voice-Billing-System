@@ -6,7 +6,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { DashboardService } from '../../shared/services/dashboard.service';
-import { CompanyService } from '../../shared/services/company.service';
 
 @Component({
   selector: 'app-product-details',
@@ -39,14 +38,6 @@ import { CompanyService } from '../../shared/services/company.service';
             <ng-container matColumnDef="price">
               <th mat-header-cell *matHeaderCellDef>Price</th>
               <td mat-cell *matCellDef="let row">&#8377;{{ row.price | number:'1.2-2' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="stock" *ngIf="!isHotel">
-              <th mat-header-cell *matHeaderCellDef>Stock</th>
-              <td mat-cell *matCellDef="let row" [class.low-stock]="row.stock < 10">
-                {{ row.stock }}
-                <span class="low-stock-badge" *ngIf="row.stock < 10">Low</span>
-              </td>
             </ng-container>
 
             <ng-container matColumnDef="todayQty">
@@ -221,25 +212,6 @@ import { CompanyService } from '../../shared/services/company.service';
       color: #1E293B;
     }
 
-    .low-stock {
-      color: #EF4444 !important;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .low-stock-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 6px;
-      background: #FEF2F2;
-      color: #EF4444;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
     .no-data-row {
       background: transparent;
     }
@@ -304,25 +276,14 @@ import { CompanyService } from '../../shared/services/company.service';
 })
 export class ProductDetailsComponent implements OnInit {
   products: any[] = [];
-  displayedColumns: string[] = [];
-  isHotel = false;
+  displayedColumns: string[] = ['productName', 'price', 'todayQty', 'todaySales', 'monthlyQty', 'monthlySales'];
 
   constructor(
     private dashboardService: DashboardService,
-    private companyService: CompanyService,
     private router: Router
   ) {}
 
   ngOnInit(): void {
-    this.companyService.getCompany().subscribe({
-      next: (data) => {
-        this.isHotel = data.shopType !== 'Super Market';
-        this.displayedColumns = this.isHotel
-          ? ['productName', 'price', 'todayQty', 'todaySales', 'monthlyQty', 'monthlySales']
-          : ['productName', 'price', 'stock', 'todayQty', 'todaySales', 'monthlyQty', 'monthlySales'];
-      }
-    });
-
     this.dashboardService.getProductDetails().subscribe({
       next: (data) => {
         this.products = data.products || [];
